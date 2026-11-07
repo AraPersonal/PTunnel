@@ -281,12 +281,56 @@ class VpnBackendRepository {
     private val apiDns = object : Dns {
         override fun lookup(hostname: String): List<InetAddress> {
             val pinned = hostPins[hostname.lowercase()]
-            return if (pinned != null) {
-                listOf(InetAddress.getByName(pinned))
-            } else {
-                Dns.SYSTEM.lookup(hostname)
+            if (pinned != null) {
+                return listOf(InetAddress.getByName(pinned))
+            }
+            try {
+                val systemAddresses = Dns.SYSTEM.lookup(hostname)
+                // Iranian DPI DNS poisoning typically injects 10.10.34.34, 10.10.34.35 or loopbacks
+                val isPoisoned = systemAddresses.any {
+                    val addr = it.hostAddress ?: ""
+                    addr.startsWith("10.10.34.") || it.isLoopbackAddress
+                }
+                if (!isPoisoned && systemAddresses.isNotEmpty()) {
+                    return systemAddresses
+                }
+            } catch (_: Exception) {
+            }
+            // Fallback to secure DoH lookup against neutral resolvers (1.1.1.1 / 8.8.8.8)
+            val dohAddresses = resolveViaDoH(hostname)
+            if (dohAddresses.isNotEmpty()) {
+                return dohAddresses
+            }
+            return Dns.SYSTEM.lookup(hostname)
+        }
+    }
+
+    private fun resolveViaDoH(hostname: String): List<InetAddress> {
+        for (resolver in DOH_RESOLVERS) {
+            try {
+                val request = Request.Builder()
+                    .url("$resolver?name=$hostname&type=A")
+                    .header("accept", "application/dns-json")
+                    .get()
+                    .build()
+                val ips = bootstrapClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@use emptyList<InetAddress>()
+                    val body = response.body?.string().orEmpty()
+                    val answers = if (body.isBlank()) null else JSONObject(body).optJSONArray("Answer")
+                    if (answers == null) {
+                        emptyList()
+                    } else {
+                        (0 until answers.length())
+                            .mapNotNull { i -> answers.optJSONObject(i)?.optString("data") }
+                            .filter { ip -> !ip.startsWith("10.10.34.") && !ip.startsWith("127.") }
+                            .mapNotNull { ip -> runCatching { InetAddress.getByName(ip) }.getOrNull() }
+                    }
+                }
+                if (ips.isNotEmpty()) return ips
+            } catch (_: Exception) {
             }
         }
+        return emptyList()
     }
 
     /**

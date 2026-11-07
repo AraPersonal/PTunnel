@@ -18,3 +18,5 @@ apps/android/app/libs/*.aar
 apps/android/.aistudio/
 apps/android/public/
 apps/android/backend/
+*.db
+apps/panel/data/
