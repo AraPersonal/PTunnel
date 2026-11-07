@@ -286,12 +286,13 @@ class ShieldVpnService : VpnService() {
             return
         }
         if (coreLoading || coreController?.isRunning == true) {
-            // teardownTunnel() waits the previous loop out, so reaching this means another start
-            // is already in flight. Do not drop the request silently: that used to leave the UI
-            // stuck on CONNECTING with no watchdog left alive to rescue it.
-            Log.w(TAG, "Ignoring start request: another start is still in flight")
-            if (reconnect) onAttemptFailed()
-            return
+            Log.w(TAG, "Previous core session still marked active; performing teardown before restart")
+            teardownTunnel()
+            if (coreController?.isRunning == true) {
+                Log.w(TAG, "Previous core did not stop within deadline; advancing the ladder")
+                if (reconnect) onAttemptFailed()
+                return
+            }
         }
         reconnecting = reconnect
         explicitStop = false
@@ -994,6 +995,8 @@ class ShieldVpnService : VpnService() {
             coreController?.stopLoop()
         } catch (t: Throwable) {
             Log.w(TAG, "stopLoop failed during teardown: ${t.message}")
+        } finally {
+            coreLoading = false
         }
         // startLoop() refuses to run while the previous loop still counts as running, so wait it
         // out here rather than racing it from the next attempt.

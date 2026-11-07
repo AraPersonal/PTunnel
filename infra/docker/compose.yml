@@ -61,6 +61,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=16m
+    volumes:
+      - ./data:/app/data
     environment:
       PT_ENV: ${PT_ENV:-stage}
       PT_SERVICE: panel
@@ -70,6 +72,8 @@ services:
       PT_BUILD_VERSION: ${BUILD_VERSION:-0.0.0}
       PT_XRAY_API_HOST: 127.0.0.1
       PT_XRAY_API_PORT: ${XRAY_API_PORT:-10085}
+      PT_DB_PATH: /app/data/ptunnel.db
+      PT_JWT_SECRET: ${PT_JWT_SECRET:-ptunnel-default-secret-token}
     depends_on:
       - xray
     security_opt:

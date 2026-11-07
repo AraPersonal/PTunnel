@@ -16,8 +16,21 @@ export function loadConfig(env = process.env) {
     // Where the core's admin API lives. host network mode means 127.0.0.1 in every environment.
     xrayApiHost: env.PT_XRAY_API_HOST || '127.0.0.1',
     xrayApiPort: int(env.PT_XRAY_API_PORT, 10085),
-    // The panel refuses to report ready in a non-dev environment without these being explicit,
-    // because a stage box that silently shares prod's identity is worse than a stage box that is down.
     requireEnv: env.PT_ENV !== 'dev',
+
+    // Database & Auth
+    dbPath: env.PT_DB_PATH || (env.NODE_ENV === 'test' ? ':memory:' : 'data/ptunnel.db'),
+    jwtSecret: env.PT_JWT_SECRET || 'ptunnel-default-development-secret-key-12345678',
+
+    // Public Tunnel & Node settings
+    publicHost: env.PT_PUBLIC_HOST || '86.54.42.124',
+    publicDomain: env.PT_PUBLIC_DOMAIN || '86-54-42-124.nip.io',
+    publicBaseUrl: env.PT_PUBLIC_BASE_URL || 'https://86-54-42-124.nip.io/v1/',
+    realityPort: int(env.PT_REALITY_PORT, 8080),
+    kcpPort: int(env.PT_KCP_PORT, 8443),
+    realitySni: env.PT_REALITY_SNI || 'www.microsoft.com',
+    realityPublicKey: env.PT_REALITY_PUBKEY || 'm_fake_reality_pubkey',
+    realityShortId: env.PT_REALITY_SHORT_ID || 'abcd1234',
+    kcpSeed: env.PT_KCP_SEED || 'ptunnel-kcp-seed',
   };
 }

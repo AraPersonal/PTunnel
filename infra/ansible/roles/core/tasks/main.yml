@@ -10,6 +10,12 @@
     - "{{ ptunnel_root }}/config"
     - "{{ ptunnel_root }}/backups"
 
+- name: persistent data directory for panel sqlite db
+  ansible.builtin.file:
+    path: "{{ ptunnel_root }}/data"
+    state: directory
+    mode: "0777"
+
 - name: compose file from the repo, never edited on the box
   ansible.builtin.copy:
     src: "{{ role_path }}/../../../docker/compose.yml"
