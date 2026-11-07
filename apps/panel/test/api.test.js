@@ -170,3 +170,43 @@ test('bootstrap and reachability: respond with valid JSON schemas', async () => 
     assert.deepEqual(await reachRes.json(), { ok: true });
   });
 });
+
+test('hysteria: internal auth authenticates user credentials dynamically', async () => {
+  await withServer(createApp(testConfig()), async (base) => {
+    // 1. Fetch user to get their hysteria_password
+    const loginRes = await fetch(`${base}/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'test@ptunnel.net', password: 'password123' }),
+    });
+    assert.equal(loginRes.status, 200);
+
+    // Retrieve db instance through app dependency or query by password
+    // In seeded user, let's test with wrong auth first
+    const badAuth = await fetch(`${base}/internal/hysteria/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auth: 'test@ptunnel.net:wrongpass', addr: '1.2.3.4:5000' }),
+    });
+    assert.equal(badAuth.status, 401);
+
+    // Empty auth
+    const emptyAuth = await fetch(`${base}/internal/hysteria/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auth: '', addr: '1.2.3.4:5000' }),
+    });
+    assert.equal(emptyAuth.status, 401);
+  });
+});
+
+test('geo: canary endpoint responds with status check', async () => {
+  await withServer(createApp(testConfig()), async (base) => {
+    const geoRes = await fetch(`${base}/geo`);
+    assert.equal(geoRes.status, 200);
+    const body = await geoRes.json();
+    assert.ok('google_204' in body);
+    assert.ok('gemini_status' in body);
+    assert.ok(body.timestamp);
+  });
+});

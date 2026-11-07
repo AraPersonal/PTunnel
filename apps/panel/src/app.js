@@ -122,6 +122,74 @@ export function createApp(config, deps = {}) {
     });
   });
 
+  // --- Sanctions Bypass Canary (/geo) ---
+  app.get('/geo', async (_req, res) => {
+    const checkUrl = async (url) => {
+      try {
+        const resp = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(3000) });
+        return resp.status;
+      } catch (e) {
+        return -1;
+      }
+    };
+
+    const [g204, gemini, alkali] = await Promise.all([
+      checkUrl('https://www.google.com/generate_204'),
+      checkUrl('https://gemini.google.com/app'),
+      checkUrl('https://alkalimakersuite-pa.googleapis.com/'),
+    ]);
+
+    res.json({
+      google_204: g204 === 204,
+      gemini_status: gemini,
+      alkali_status: alkali,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // --- Dynamic Hysteria2 Server Authentication ---
+  app.post('/internal/hysteria/auth', (req, res) => {
+    const rawAuth = String(req.body?.auth || '').trim();
+    const addr = String(req.body?.addr || '');
+
+    if (!rawAuth) {
+      return res.status(401).json({ ok: false, error: 'empty_auth' });
+    }
+
+    let username = '';
+    let hy2Pass = '';
+    if (rawAuth.includes(':')) {
+      const idx = rawAuth.indexOf(':');
+      username = rawAuth.slice(0, idx).trim().toLowerCase();
+      hy2Pass = rawAuth.slice(idx + 1).trim();
+    } else {
+      hy2Pass = rawAuth;
+    }
+
+    let user = null;
+    if (username) {
+      user = db.prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE').get(username);
+    } else {
+      user = db.prepare('SELECT * FROM users WHERE hysteria_password = ?').get(hy2Pass);
+    }
+
+    if (!user || (username && user.hysteria_password !== hy2Pass)) {
+      return res.status(401).json({ ok: false, error: 'invalid_credentials' });
+    }
+
+    if (!user.is_enabled) {
+      return res.status(403).json({ ok: false, error: 'disabled' });
+    }
+
+    db.prepare('UPDATE users SET last_seen_at = ?, updated_at = ? WHERE uid = ?').run(
+      new Date().toISOString(),
+      new Date().toISOString(),
+      user.uid
+    );
+
+    res.json({ ok: true, id: user.username });
+  });
+
   // --- User Authentication ---
   const handleLogin = (req, res) => {
     const username = String(req.body?.username || req.body?.email || '').trim().toLowerCase();
