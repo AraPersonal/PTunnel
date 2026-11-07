@@ -30,6 +30,13 @@ GitHub → Settings → General → Danger Zone → Change visibility → **Priv
 
 ## ۲) تنظیمات ریپو (یک‌بار)
 
+> وضعیت تا این لحظه: ریپو **private** است، محیط‌های  و  ساخته شده‌اند، و هر دو
+> workflow روی  سبزند. تنها چیزی که با توکنِ فعلی اعمال نشد **محافظتِ شاخه** بود
+> (HTTP 403 نیاز به scope مدیریتی دارد)؛ نامِ دقیقِ checkهایی که باید اجباری شوند:
+> , , . بازبینِ Environmentِ  را هم در UI تعیین کنید
+> (API برای مالکِ همان Environment خطای 422 می‌دهد).
+
+
 - Settings → Branches → محافظتِ `main`: Require PR، Require approvals = 1، Require status checks = `panel`, `hygiene`, `infra`، Dismiss stale approvals، Include administrators.
 - Settings → Environments → ساختِ `stage` و `prod`:
   - `prod`: Required reviewers = ۱ نفر.
