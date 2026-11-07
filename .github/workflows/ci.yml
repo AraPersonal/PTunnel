@@ -23,10 +23,14 @@ jobs:
           cache-dependency-path: apps/panel/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm test
-      - name: the built image would answer liveness
+      - name: the server answers liveness when started
         run: |
-          node src/server.js & sleep 1
-          curl -fsS http://127.0.0.1:8080/healthz
+          PT_ENV=stage PT_PORT=8080 node src/server.js &
+          for _ in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8080/healthz; then exit 0; fi
+            sleep 1
+          done
+          echo "panel never answered"; exit 1
   hygiene:
     runs-on: ubuntu-latest
     steps:
@@ -35,6 +39,7 @@ jobs:
         run: bash tools/check-no-secrets.sh
       - name: every yaml parses
         run: |
+          python3 -m pip install --quiet pyyaml
           python3 - <<'PY'
           import glob, sys, yaml
           files = glob.glob('infra/**/*.yml', recursive=True) + glob.glob('.github/**/*.yml', recursive=True)
@@ -51,9 +56,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: pipx install ansible-core
-      - run: ansible-galaxy collection install community.docker community.general
-      - name: playbook syntax
+      - name: ansible
+        run: |
+          python3 -m pip install --quiet --user ansible-core
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: collections
+        run: ansible-galaxy collection install community.docker community.general
+      - name: playbook syntax for both environments
         env:
           ANSIBLE_CONFIG: infra/ansible/ansible.cfg
         run: |
