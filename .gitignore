@@ -10,3 +10,4 @@ infra/ansible/*.retry
 *.apk
 .DS_Store
 coverage/
+*.part

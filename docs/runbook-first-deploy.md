@@ -8,12 +8,19 @@
 - دسترسیِ نوشتن به `github.com/AraPersonal/PTunnel` با یک PAT یا Git Credential Manager.
 - **یک پوشهٔ خصوصی برای سکرت‌ها** (`~/.ptunnel/`) که هرگز داخل این ریپو نیست.
 
+## ۰.۵) اول خصوصی، بعد push
+
+تاریخچهٔ عمومی را نمی‌توان un-publish کرد. قبل از هر push:
+GitHub → Settings → General → Danger Zone → Change visibility → **Private**.
+
 ## ۱) اولین push
 
 ریپوی远端 یک کامیتِ README دارد و تاریخچهٔ ما مستقل است. دو راه:
 
-**الف) تاریخچهٔ تمیز (توصیه‌شده برای شروع از صفر):**
+**الف) تاریخچهٔ تمیز (انتخاب‌شده):**
 
+    make publish-init      # گارد: اسکن سکرت + درخت تمیز + تأیید تایپی، سپس force-with-lease
+    # یا به‌صورت دستی:
     git push --force-with-lease origin main
 
 **ب) بدون بازنویسیِ تاریخچه:**
