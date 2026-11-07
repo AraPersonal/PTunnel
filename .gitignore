@@ -15,3 +15,6 @@ apps/android/.gradle/
 apps/android/**/build/
 apps/android/local.properties
 apps/android/app/libs/*.aar
+apps/android/.aistudio/
+apps/android/public/
+apps/android/backend/
