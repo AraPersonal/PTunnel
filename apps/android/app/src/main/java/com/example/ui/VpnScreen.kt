@@ -88,8 +88,13 @@ import com.example.ui.components.LocationBox
 import com.example.ui.components.LocationBoxPanel
 import com.example.ui.components.SubscriptionHeaderStrip
 import com.example.ui.components.TelegramLivingBackground
+import com.example.ui.components.LiveDebugSheet
 import com.example.ui.components.UpdatePromptDialog
 import com.example.ui.components.UserProfileSheet
+import com.example.ui.theme.HairlineStrong
+import com.example.ui.theme.LoginSurface
+import com.example.ui.theme.MintAccent
+import com.example.ui.theme.TextPrimary
 import com.example.ui.components.airDropContainerWarp
 import com.example.ui.components.airDropContentBlur
 import com.example.ui.components.airDropElementWarp
@@ -107,6 +112,7 @@ fun VpnScreen(
 ) {
     val uiState by vpnViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var isLiveDebugSheetOpen by remember { mutableStateOf(false) }
 
     // Check for a new build every time the app is entered (cold start and each foreground resume).
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -172,6 +178,48 @@ fun VpnScreen(
             onDismiss = { vpnViewModel.setProfileSheetOpen(false) }
         )
     }
+
+    // Floating Diagnostics Pill accessible in ALL states (Login screen & Dashboard)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing),
+        contentAlignment = Alignment.TopEnd
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(top = 10.dp, end = 16.dp)
+                .clip(CircleShape)
+                .background(LoginSurface.copy(alpha = 0.88f))
+                .border(1.dp, HairlineStrong, CircleShape)
+                .clickable { isLiveDebugSheetOpen = true }
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(MintAccent)
+                )
+                Text(
+                    text = "Diagnostics",
+                    color = TextPrimary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+
+    // Live Diagnostics & Core Ladder Bottom Sheet
+    LiveDebugSheet(
+        visible = isLiveDebugSheetOpen,
+        onDismissRequest = { isLiveDebugSheetOpen = false }
+    )
 }
 
 @Composable

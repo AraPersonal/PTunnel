@@ -12,6 +12,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * The bootstrap document is what the app falls back to when every endpoint it was built with is
@@ -23,6 +24,7 @@ import org.robolectric.RobolectricTestRunner
  * nothing here touches a device, a network of its own, or the pinned production addresses.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class BootstrapDocumentTest {
 
     private var server: HttpServer? = null

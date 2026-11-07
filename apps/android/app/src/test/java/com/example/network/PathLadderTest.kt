@@ -218,8 +218,8 @@ class PathLadderTest {
             listOf(
                 RecoveryStep.SAME_CONFIG,
                 RecoveryStep.OTHER_BOX,
-                RecoveryStep.FRESH_MULTI,
-                RecoveryStep.REALITY_ONLY
+                RecoveryStep.REALITY_ONLY,
+                RecoveryStep.FRESH_MULTI
             ),
             plan
         )

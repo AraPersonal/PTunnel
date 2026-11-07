@@ -132,6 +132,20 @@ test('client config: generates anti-throttling profile for Iran paths', async ()
     assert.ok(reality, 'Reality outbound must exist');
     assert.equal(reality.streamSettings.sockopt.tcpNoDelay, true);
     assert.equal(reality.streamSettings.sockopt.tcpUserTimeout, 60000);
+    // Reality must lead for fast line-rate throughput without KCP throttles
+    assert.equal(body.config.outbounds[0].tag, 'reality');
+  });
+});
+
+test('locations: returns Germany and Turkey nodes', async () => {
+  await withServer(createApp(testConfig()), async (base) => {
+    const res = await fetch(`${base}/v1/locations`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.ok(Array.isArray(body.locations));
+    assert.equal(body.locations.length, 2);
+    assert.equal(body.locations[0].country, 'Germany');
+    assert.equal(body.locations[1].country, 'Turkey');
   });
 });
 

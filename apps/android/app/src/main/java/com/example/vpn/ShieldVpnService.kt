@@ -337,7 +337,18 @@ class ShieldVpnService : VpnService() {
                 if (controller == null) throw IllegalStateException("VPN engine is not initialized")
                 controller.startLoop(config, tun.fd)
                 Log.i(TAG, "startLoop returned; core running=${controller.isRunning}")
-                if (!controller.isRunning) {
+                if (controller.isRunning) {
+                    VpnDebugLogger.log(
+                        stage = "CORE_UP",
+                        message = "Xray core engine loop active (TUN fd=${tun.fd})",
+                        level = DebugLogLevel.SUCCESS
+                    )
+                } else {
+                    VpnDebugLogger.log(
+                        stage = "LADDER",
+                        message = "Core loop did not report running; advancing ladder...",
+                        level = DebugLogLevel.WARN
+                    )
                     Log.w(TAG, "Core reports not running after startLoop; advancing the ladder")
                     onAttemptFailed()
                 }
@@ -550,6 +561,11 @@ class ShieldVpnService : VpnService() {
                         startFastLaneWatch()
                     }
                     VpnRuntime.set(VpnConnectionState.CONNECTED)
+                    VpnDebugLogger.log(
+                        stage = "VERIFIED",
+                        message = "End-to-end connectivity verified. Tunnel online.",
+                        level = DebugLogLevel.SUCCESS
+                    )
                     updateNotification("Connected")
                     startTunnelHealthMonitor()
                 }

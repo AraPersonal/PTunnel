@@ -29,8 +29,10 @@ import com.example.ui.components.VpnTrafficSample
 import com.example.update.AppUpdateInfo
 import com.example.update.UpdateInstaller
 import com.example.update.UpdateState
+import com.example.vpn.DebugLogLevel
 import com.example.vpn.ParsedQuotaInfo
 import com.example.vpn.ShieldVpnService
+import com.example.vpn.VpnDebugLogger
 import com.example.vpn.VpnRuntime
 import com.example.vpn.VpnUriParser
 import kotlinx.coroutines.Job
@@ -110,9 +112,15 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         val savedMode = prefs.getString(KEY_LOCATION_MODE, null)
             ?.let { runCatching { LocationMode.valueOf(it) }.getOrNull() }
             ?: LocationMode.AUTO
+        val savedLocationId = prefs.getString(KEY_LOCATION_ID, null)
+            ?.takeIf { id -> DEFAULT_LOCATIONS.any { it.id == id } }
+            ?: DEFAULT_LOCATIONS.first().id
+
         _uiState.update {
             it.copy(
                 locationMode = savedMode,
+                locations = DEFAULT_LOCATIONS,
+                selectedLocationId = savedLocationId,
                 installedVersionName = UpdateInstaller.installedVersionName(application)
             )
         }
@@ -125,17 +133,41 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             VpnRuntime.state.collect { runtimeState ->
                 _uiState.update { state ->
                     when (runtimeState) {
-                        VpnConnectionState.CONNECTED -> state.copy(connectionState = VpnConnectionState.CONNECTED)
-                        VpnConnectionState.CONNECTING -> state.copy(connectionState = VpnConnectionState.CONNECTING)
-                        VpnConnectionState.DISCONNECTED -> state.copy(
-                            connectionState = VpnConnectionState.DISCONNECTED,
-                            sessionSeconds = 0L,
-                            liveThroughputBytesPerSec = 0L,
-                            liveDownloadBytesPerSec = 0L,
-                            liveUploadBytesPerSec = 0L,
-                            sessionTotalBytes = 0L,
-                            trafficSamples = emptyList()
-                        )
+                        VpnConnectionState.CONNECTED -> {
+                            VpnDebugLogger.log(
+                                stage = "CONNECTED",
+                                message = "Active tunnel established and verified.",
+                                level = DebugLogLevel.SUCCESS
+                            )
+                            state.copy(connectionState = VpnConnectionState.CONNECTED)
+                        }
+                        VpnConnectionState.CONNECTING -> {
+                            val activeLoc = state.selectedLocation
+                            val serverTag = if (activeLoc != null) "${activeLoc.flag} ${activeLoc.country}" else "Auto"
+                            VpnDebugLogger.log(
+                                stage = "CONNECTING",
+                                message = "Initiating connection to $serverTag...",
+                                server = serverTag,
+                                level = DebugLogLevel.INFO
+                            )
+                            state.copy(connectionState = VpnConnectionState.CONNECTING)
+                        }
+                        VpnConnectionState.DISCONNECTED -> {
+                            VpnDebugLogger.log(
+                                stage = "DISCONNECTED",
+                                message = "VPN tunnel disconnected.",
+                                level = DebugLogLevel.WARN
+                            )
+                            state.copy(
+                                connectionState = VpnConnectionState.DISCONNECTED,
+                                sessionSeconds = 0L,
+                                liveThroughputBytesPerSec = 0L,
+                                liveDownloadBytesPerSec = 0L,
+                                liveUploadBytesPerSec = 0L,
+                                sessionTotalBytes = 0L,
+                                trafficSamples = emptyList()
+                            )
+                        }
                     }
                 }
                 if (runtimeState == VpnConnectionState.CONNECTED) {
@@ -224,11 +256,22 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        VpnDebugLogger.log(
+            stage = "AUTH",
+            message = "Initiating authentication for $cleanUsername...",
+            level = DebugLogLevel.INFO
+        )
+
         viewModelScope.launch {
             _uiState.update { it.copy(isAuthLoading = true, authErrorMessage = null) }
             val config = _uiState.value.settings.backendConfig
             repository.loginWithServer(config, cleanUsername, password)
                 .onSuccess { (profile, serverNodes) ->
+                    VpnDebugLogger.log(
+                        stage = "AUTH",
+                        message = "Authentication successful. User: ${profile.email}",
+                        level = DebugLogLevel.SUCCESS
+                    )
                     persistSession(profile)
                     val selected = serverNodes.firstOrNull()?.id
                     _uiState.update { state ->
@@ -566,12 +609,32 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     /** Hands a profile to the VPN service. */
     private fun startTunnelWith(configJson: String) {
         try {
+            val proto = if (configJson.contains("\"reality\"")) {
+                "VLESS • Reality (TCP 8080)"
+            } else if (configJson.contains("\"kcp\"")) {
+                "mKCP (UDP 8443)"
+            } else if (configJson.contains("\"ws\"")) {
+                "VLESS • WS (CDN 2083)"
+            } else {
+                "Auto Adaptive"
+            }
+            VpnDebugLogger.log(
+                stage = "CONFIG",
+                message = "Handing profile to engine service with lead transport: $proto",
+                protocol = proto,
+                level = DebugLogLevel.INFO
+            )
             val intent = Intent(getApplication(), ShieldVpnService::class.java).apply {
                 action = ShieldVpnService.ACTION_CONNECT
                 putExtra(ShieldVpnService.EXTRA_XRAY_CONFIG, configJson)
             }
             ContextCompat.startForegroundService(getApplication(), intent)
         } catch (error: Exception) {
+            VpnDebugLogger.log(
+                stage = "ERROR",
+                message = "Failed to launch VPN service: ${error.localizedMessage}",
+                level = DebugLogLevel.ERROR
+            )
             connectWatchdogJob?.cancel()
             connectWatchdogJob = null
             _uiState.update {
@@ -659,6 +722,15 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectLocation(locationId: String) {
+        val loc = _uiState.value.locations.find { it.id == locationId }
+        if (loc != null) {
+            VpnDebugLogger.log(
+                stage = "LOCATION",
+                message = "Node selected: ${loc.flag} ${loc.name} (${loc.host})",
+                server = "${loc.flag} ${loc.country}",
+                level = DebugLogLevel.INFO
+            )
+        }
         prefs.edit().putString(KEY_LOCATION_ID, locationId).apply()
         _uiState.update {
             it.copy(
@@ -1185,6 +1257,27 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     companion object {
+        val DEFAULT_LOCATIONS = listOf(
+            VpnLocation(
+                id = "de-1",
+                name = "Germany (Frankfurt)",
+                country = "Germany",
+                host = "86.54.42.124",
+                domain = "86-54-42-124.nip.io",
+                flag = "🇩🇪",
+                apiBase = "https://86-54-42-124.nip.io/v1/"
+            ),
+            VpnLocation(
+                id = "tr-1",
+                name = "Turkey (Istanbul)",
+                country = "Turkey",
+                host = "tr.ptunnel.net",
+                domain = "tr.ptunnel.net",
+                flag = "🇹🇷",
+                apiBase = "https://tr.ptunnel.net/v1/"
+            )
+        )
+
         private const val PREFS_NAME = "ptunnel_session"
         private const val KEY_TOKEN = "token"
         private const val KEY_USERNAME = "username"

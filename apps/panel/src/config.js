@@ -29,8 +29,8 @@ export function loadConfig(env = process.env) {
     realityPort: int(env.PT_REALITY_PORT, 8080),
     kcpPort: int(env.PT_KCP_PORT, 8443),
     realitySni: env.PT_REALITY_SNI || 'www.microsoft.com',
-    realityPublicKey: env.PT_REALITY_PUBKEY || 'm_fake_reality_pubkey',
-    realityShortId: env.PT_REALITY_SHORT_ID || 'abcd1234',
+    realityPublicKey: env.PT_REALITY_PUBKEY || '2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY',
+    realityShortId: env.PT_REALITY_SHORT_ID || '2a18498b611d7ac7',
     kcpSeed: env.PT_KCP_SEED || 'ptunnel-kcp-seed',
   };
 }

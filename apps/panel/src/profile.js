@@ -120,16 +120,16 @@ export function buildClientConfig(user, tag = 'multi', options = {}) {
     },
   };
 
-  // Configure outbounds based on requested tag
-  if (tag === 'reality' || tag === 'vless-reality') {
-    outbounds.push(realityOutbound, kcpOutbound, cdnOutbound);
-  } else if (tag === 'kcp') {
+  // Configure outbounds based on requested tag:
+  // In Iranian networks, VLESS-Reality on port 8080 with BBR avoids TCP port-443 shaping and raw-UDP throttling.
+  // mKCP is retained as secondary/recovery, followed by CDN.
+  if (tag === 'kcp') {
     outbounds.push(kcpOutbound, realityOutbound, cdnOutbound);
   } else if (tag === 'cdn') {
-    outbounds.push(cdnOutbound, kcpOutbound, realityOutbound);
+    outbounds.push(cdnOutbound, realityOutbound, kcpOutbound);
   } else {
-    // tag === 'multi' (Auto/Fastest rotation: kcp lead, reality backup, cdn last resort)
-    outbounds.push(kcpOutbound, realityOutbound, cdnOutbound);
+    // Default / 'multi' / 'reality': Reality TCP leads for line-rate speed and zero packet-drop penalty
+    outbounds.push(realityOutbound, kcpOutbound, cdnOutbound);
   }
 
   // Freedom direct & block outbounds

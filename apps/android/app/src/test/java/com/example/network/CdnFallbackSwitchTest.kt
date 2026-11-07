@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * The auto-switch step: once the server IP is judged blocked, the app re-points the `cdn` outbound
@@ -15,6 +16,7 @@ import org.robolectric.RobolectricTestRunner
  * Robolectric is only here for a working `org.json` on the JVM.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class CdnFallbackSwitchTest {
 
     private val profile = """

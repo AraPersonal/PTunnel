@@ -316,12 +316,21 @@ export function createApp(config, deps = {}) {
       locations: [
         {
           id: 'de-1',
-          name: 'Germany - Frankfurt',
+          name: 'Germany (Frankfurt)',
           country: 'Germany',
           host: config.publicHost,
           domain: config.publicDomain,
           flag: '🇩🇪',
           api_base: config.publicBaseUrl,
+        },
+        {
+          id: 'tr-1',
+          name: 'Turkey (Istanbul)',
+          country: 'Turkey',
+          host: 'tr.ptunnel.net',
+          domain: 'tr.ptunnel.net',
+          flag: '🇹🇷',
+          api_base: `https://tr.ptunnel.net/v1/`,
         },
       ],
     });

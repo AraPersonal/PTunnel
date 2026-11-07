@@ -157,15 +157,15 @@ object PathLadder {
                 RecoveryStep.OTHER_BOX,
                 RecoveryStep.CACHED_CDN,
                 RecoveryStep.FRESH_CDN,
-                RecoveryStep.FRESH_MULTI,
-                RecoveryStep.REALITY_ONLY
+                RecoveryStep.REALITY_ONLY,
+                RecoveryStep.FRESH_MULTI
             )
         } else {
             val direct = listOf(
                 RecoveryStep.SAME_CONFIG,
                 RecoveryStep.OTHER_BOX,
-                RecoveryStep.FRESH_MULTI,
-                RecoveryStep.REALITY_ONLY
+                RecoveryStep.REALITY_ONLY,
+                RecoveryStep.FRESH_MULTI
             )
             if (fleetCorroborates) {
                 direct + listOf(RecoveryStep.CACHED_CDN, RecoveryStep.FRESH_CDN)
