@@ -1,10 +1,10 @@
 # One compose file, two environments. Stage and prod differ only by the env file and the host they run on;
 # nothing here is environment-specific, so a change cannot silently apply to one and not the other.
 #
-# Both services use host networking on purpose:
-#   - the core needs UDP with no NAT in the way (mKCP) and no port-mapping surprises;
-#   - the panel must reach the core's admin API on 127.0.0.1, and must never be reachable from outside.
-# TLS and public HTTP stay on the host's reverse proxy, exactly as before.
+# All services use host networking on purpose:
+#   - the core needs UDP with no NAT in the way (mKCP, Hysteria2) and no port-mapping surprises;
+#   - the panel must reach the core admin API on 127.0.0.1, and must never be reachable from outside.
+# TLS and public HTTP stay on the host reverse proxy, exactly as before.
 name: ptunnel-${PT_ENV:-stage}
 
 services:
@@ -27,7 +27,31 @@ services:
       options: { max-size: "10m", max-file: "3" }
     labels:
       ptunnel.env: ${PT_ENV:-stage}
-      ptunnel.role: core
+      ptunnel.role: core-xray
+
+  # Hysteria2 is the second engine on purpose: QUIC/UDP is what survives lines that shape TCP. The client
+  # keeps it behind the same Agent contract as the Xray transports, so two engines stay one product.
+  hysteria:
+    image: ${HYSTERIA_IMAGE:?set HYSTERIA_IMAGE}
+    container_name: ptunnel-hysteria-${PT_ENV:-stage}
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m
+    volumes:
+      - ./config/hysteria.yaml:/etc/hysteria/config.yaml:ro
+      - ./config/certs:/etc/hysteria/certs:ro
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    labels:
+      ptunnel.env: ${PT_ENV:-stage}
+      ptunnel.role: core-hysteria
 
   panel:
     image: ${PANEL_IMAGE:?set PANEL_IMAGE}

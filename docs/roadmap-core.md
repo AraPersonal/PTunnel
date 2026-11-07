@@ -15,6 +15,7 @@
 - [x] compose دو-محیطی با host network و پنلِ loopback-only
 - [x] Ansible: base (BBR assert) / docker / core / proxy
 - [x] deploy از GitHub با تأیید محیط + health gate + concurrency
+- [x] ایمیج و سرویس Hysteria2 با نسخه و digest قفل‌شده (منتظرِ تست روی خط)
 - [ ] محافظتِ شاخهٔ `main` (نیازمند UI یا توکن با scope مدیریتی)
 - [ ] باکسِ stage (VPS) و اولین استقرار موفق
 
@@ -39,7 +40,7 @@
 
 - [x] **VLESS + Reality (TCP)** — روی v1 سنجیده شد: ۱.۱۴MB/s اولیه، سپس خفه
 - [x] **mKCP (VLESS/UDP)** — سنجیده شد: ۱.۰۷–۱.۸۲MB/s، ۰ از ۱۰ دور مرده
-- [ ] **Hysteria2 (QUIC + salamander + port hopping)** — باید روی خط سنجیده شود
+- [ ] **Hysteria2 (QUIC + salamander + port hopping)** — سرور و ایمیج آماده‌اند (v2.13.0 با digest)؛ اندازه‌گیری روی خطِ ایرانی باقی است
 - [ ] **TUIC v5 (QUIC/UDP)** — باید سنجیده شود
 - [ ] **VLESS/VMess + WS + TLS روی CDN** — نیازمند دامنهٔ تازهٔ بی‌پرچم
 - [ ] **ShadowTLS v3 + SS** — فقط اگر Reality جواب نداد
@@ -71,8 +72,9 @@
 
 ## فاز ۷ — کلاینتِ چندسکویی
 
-- [ ] تصمیمِ موتور (ADR-0005) و امضاشدنش توسط تیم
+- [x] تصمیمِ موتور: **ترکیبی — Xray + Hysteria2 زیر یک Agent** (ADR-0005 پذیرفته)
 - [ ] قراردادِ کلاینت/سرور (`docs/integration/protocol-contract.md`) پیاده و آزموده
+- [ ] پیاده‌سازیِ `Agent` در Go با دو موتور + ساختِ AAR برای اندروید و سرویس برای دسکتاپ
 - [ ] هستهٔ مشترک: یک کد برای اندروید/ویندوز/لینوکس + پوسته‌های نازک UI
 - [ ] حذفِ کورِ قدیمی از اپ و جای‌گذاریِ هستهٔ نو
 - [ ] آزمونِ پذیرش روی سه پلتفرم با همان پروفایل

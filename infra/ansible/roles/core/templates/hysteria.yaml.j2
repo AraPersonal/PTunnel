@@ -1,0 +1,22 @@
+# Hysteria2 listen. Salamander makes the QUIC packets look like nothing to a passive classifier, and the
+# masquerade turns a stray HTTP request into a normal website instead of an empty UDP port.
+listen: :{{ hy2_port }}
+
+tls:
+  cert: /etc/hysteria/certs/fullchain.pem
+  key: /etc/hysteria/certs/privkey.pem
+
+auth:
+  type: password
+  password: "{{ vault_hy2_password }}"
+
+obfs:
+  type: salamander
+  salamander:
+    password: "{{ vault_hy2_obfs }}"
+
+masquerade:
+  type: proxy
+  proxy:
+    url: https://www.bing.com
+    rewriteHost: true

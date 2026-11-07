@@ -2,3 +2,6 @@
 - name: restart core
   ansible.builtin.command: "docker restart ptunnel-xray-{{ pt_env }}"
   changed_when: true
+- name: restart hysteria
+  ansible.builtin.command: "docker restart ptunnel-hysteria-{{ pt_env }}"
+  changed_when: true

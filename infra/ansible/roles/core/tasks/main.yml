@@ -45,3 +45,27 @@
     chdir: "{{ ptunnel_root }}"
   register: deploy
   changed_when: deploy.rc == 0
+
+- name: certificate directory
+  ansible.builtin.file:
+    path: "{{ ptunnel_root }}/config/certs"
+    state: directory
+    mode: "0750"
+
+- name: self-signed certificate for the QUIC listener
+  ansible.builtin.command:
+    cmd: >-
+      openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -days 365 -nodes
+      -keyout {{ ptunnel_root }}/config/certs/privkey.pem
+      -out {{ ptunnel_root }}/config/certs/fullchain.pem
+      -subj /CN={{ public_host }}
+    creates: "{{ ptunnel_root }}/config/certs/fullchain.pem"
+  when: hy2_tls_mode == "selfsigned"
+
+- name: hysteria config
+  ansible.builtin.template:
+    src: hysteria.yaml.j2
+    dest: "{{ ptunnel_root }}/config/hysteria.yaml"
+    mode: "0640"
+    backup: true
+  notify: restart hysteria

@@ -7,3 +7,7 @@ ptunnel_tls: false
 xray_reality_sni: www.microsoft.com
 xray_reality_dest: www.microsoft.com:443
 xray_kcp_mtu: 1350
+hy2_port: 8443
+hy2_tls_mode: selfsigned
+hysteria_version: "app/v2.13.0"
+hysteria_sha256: "907ba8c9693edb104b20582681fb7dc15639d5b64a9cbb616a7b539190a86691"

@@ -17,6 +17,8 @@ jobs:
             context: apps/panel
           - name: xray
             context: infra/docker/xray
+          - name: hysteria
+            context: infra/docker/hysteria
     steps:
       - uses: actions/checkout@v4
       # Container registry references must be lowercase. github.repository keeps the owner's casing,
@@ -37,8 +39,12 @@ jobs:
           push: true
           provenance: true
           sbom: true
+          # Each engine is pinned by version, and Hysteria also by the digest published on the release
+          # asset itself: a replaced upload fails the build instead of being trusted.
           build-args: |
             XRAY_VERSION=${{ vars.XRAY_VERSION != '' && vars.XRAY_VERSION || '26.10.31' }}
+            HYSTERIA_VERSION=${{ vars.HYSTERIA_VERSION != '' && vars.HYSTERIA_VERSION || 'app/v2.13.0' }}
+            HYSTERIA_SHA256=${{ vars.HYSTERIA_SHA256 != '' && vars.HYSTERIA_SHA256 || '907ba8c9693edb104b20582681fb7dc15639d5b64a9cbb616a7b539190a86691' }}
           tags: |
             ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.sha }}
             ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ env.REF_TAG }}

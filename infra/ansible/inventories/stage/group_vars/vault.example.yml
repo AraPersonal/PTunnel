@@ -5,3 +5,5 @@ vault_reality_private_key: "" # xray x25519 private key
 vault_reality_short_id: ""    # hex, 2-16 chars
 vault_kcp_seed: ""            # kcp seed string
 vault_ghcr_token: ""          # read:packages token for pulling images
+vault_hy2_password: ""     # Hysteria2 user password"
+vault_hy2_obfs: ""         # salamander obfuscation password
