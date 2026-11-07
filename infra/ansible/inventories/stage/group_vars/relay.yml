@@ -9,4 +9,4 @@ xray_kcp_port: 18444
 xray_sniff_domains:
   - "domain:gemini.google.com"
   - "domain:alkalimakersuite-pa.googleapis.com"
-  - "regexp:^[a-z0-9][a-z0-9-]*-pa\.googleapis\.com$"
+  - 'regexp:^[a-z0-9][a-z0-9-]*-pa\.googleapis\.com$'
