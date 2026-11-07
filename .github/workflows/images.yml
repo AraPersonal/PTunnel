@@ -38,7 +38,7 @@ jobs:
           provenance: true
           sbom: true
           build-args: |
-            XRAY_VERSION=${{ vars.XRAY_VERSION != '' && vars.XRAY_VERSION || '26.10.29' }}
+            XRAY_VERSION=${{ vars.XRAY_VERSION != '' && vars.XRAY_VERSION || '26.10.31' }}
           tags: |
             ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.sha }}
             ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ env.REF_TAG }}

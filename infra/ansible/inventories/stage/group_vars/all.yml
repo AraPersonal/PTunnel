@@ -1,4 +1,4 @@
-xray_version: "26.10.29"
+xray_version: "26.10.31"
 ptunnel_root: /opt/ptunnel
 ptunnel_timezone: UTC
 ptunnel_image_repo: arapersonal/ptunnel

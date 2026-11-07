@@ -1,6 +1,6 @@
 # The core, pinned and checksum-verified at build time. Nothing is downloaded when the container starts,
 # and the version that serves traffic is the version written in this file.
-ARG XRAY_VERSION=26.10.29
+ARG XRAY_VERSION=26.10.31
 FROM alpine:3.20 AS fetch
 ARG XRAY_VERSION
 RUN apk add --no-cache curl unzip ca-certificates
