@@ -7,8 +7,14 @@ tls:
   key: /etc/hysteria/certs/privkey.pem
 
 auth:
+{% if hy2_auth_type | default('password') == 'http' %}
+  type: http
+  http:
+    url: http://127.0.0.1:{{ panel_port | default(8080) }}/internal/hysteria/auth
+{% else %}
   type: password
   password: "{{ vault_hy2_password }}"
+{% endif %}
 
 obfs:
   type: salamander

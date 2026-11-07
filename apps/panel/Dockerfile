@@ -8,9 +8,11 @@ FROM node:22-alpine
 ENV NODE_ENV=production
 WORKDIR /app
 RUN addgroup -S ptunnel && adduser -S -G ptunnel ptunnel
+RUN mkdir -p /app/data && chown -R ptunnel:ptunnel /app/data
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY src ./src
+VOLUME ["/app/data"]
 USER ptunnel
 EXPOSE 8080
 # Liveness only - readiness needs the core and is checked by the deploy gate.
