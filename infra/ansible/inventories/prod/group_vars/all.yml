@@ -1,0 +1,9 @@
+xray_version: "26.10.29"
+ptunnel_root: /opt/ptunnel
+ptunnel_timezone: UTC
+ptunnel_image_repo: owner/ptunnel-core   # change to <org>/<repo> at first deploy
+ptunnel_image_tag: main
+ptunnel_tls: false
+xray_reality_sni: www.microsoft.com
+xray_reality_dest: www.microsoft.com:443
+xray_kcp_mtu: 1350

@@ -1,0 +1,58 @@
+# One compose file, two environments. Stage and prod differ only by the env file and the host they run on;
+# nothing here is environment-specific, so a change cannot silently apply to one and not the other.
+#
+# Both services use host networking on purpose:
+#   - the core needs UDP with no NAT in the way (mKCP) and no port-mapping surprises;
+#   - the panel must reach the core's admin API on 127.0.0.1, and must never be reachable from outside.
+# TLS and public HTTP stay on the host's reverse proxy, exactly as before.
+name: ptunnel-${PT_ENV:-stage}
+
+services:
+  xray:
+    image: ${XRAY_IMAGE:?set XRAY_IMAGE}
+    container_name: ptunnel-xray-${PT_ENV:-stage}
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    volumes:
+      - ./config/xray.json:/etc/xray/config.json:ro
+    environment:
+      XRAY_CONFIG: /etc/xray/config.json
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    labels:
+      ptunnel.env: ${PT_ENV:-stage}
+      ptunnel.role: core
+
+  panel:
+    image: ${PANEL_IMAGE:?set PANEL_IMAGE}
+    container_name: ptunnel-panel-${PT_ENV:-stage}
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    environment:
+      PT_ENV: ${PT_ENV:-stage}
+      PT_SERVICE: panel
+      PT_PORT: ${PANEL_PORT:-8080}
+      PT_BIND_HOST: 127.0.0.1
+      PT_GIT_SHA: ${GIT_SHA:-unknown}
+      PT_BUILD_VERSION: ${BUILD_VERSION:-0.0.0}
+      PT_XRAY_API_HOST: 127.0.0.1
+      PT_XRAY_API_PORT: ${XRAY_API_PORT:-10085}
+    depends_on:
+      - xray
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    labels:
+      ptunnel.env: ${PT_ENV:-stage}
+      ptunnel.role: panel

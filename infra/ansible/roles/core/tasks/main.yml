@@ -1,0 +1,47 @@
+---
+- name: directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    mode: "0755"
+  loop:
+    - "{{ ptunnel_root }}"
+    - "{{ ptunnel_root }}/config"
+    - "{{ ptunnel_root }}/backups"
+
+- name: compose file from the repo, never edited on the box
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../../docker/compose.yml"
+    dest: "{{ ptunnel_root }}/compose.yml"
+    mode: "0644"
+
+- name: core config
+  ansible.builtin.template:
+    src: xray.json.j2
+    dest: "{{ ptunnel_root }}/config/xray.json"
+    mode: "0640"
+    backup: true
+  notify: restart core
+
+- name: deploy script
+  ansible.builtin.template:
+    src: deploy.sh.j2
+    dest: "{{ ptunnel_root }}/deploy.sh"
+    mode: "0755"
+
+- name: registry login
+  community.docker.docker_login:
+    registry: ghcr.io
+    username: x-access-token
+    password: "{{ vault_ghcr_token }}"
+    reauthorize: true
+  no_log: true
+  when: vault_ghcr_token | default('') | length > 0
+
+- name: pull images and converge the stack
+  ansible.builtin.command:
+    cmd: "./deploy.sh {{ pt_env }} {{ ptunnel_image_tag }} {{ ptunnel_image_repo }}"
+    chdir: "{{ ptunnel_root }}"
+  register: deploy
+  changed_when: deploy.rc == 0

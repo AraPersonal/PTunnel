@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Runs on the box. Pulls the exact image tag it was given, converges the stack, and refuses to report
+# success until the panel is ready - which also proves the core admin API answers.
+set -euo pipefail
+ENV_NAME="${1:?usage: deploy.sh <env> <image-tag> <repo>}"
+TAG="${2:?}"
+REPO="${3:?}"
+cd {{ ptunnel_root }}
+export PT_ENV="$ENV_NAME"
+export PANEL_IMAGE="ghcr.io/${REPO}/panel:${TAG}"
+export XRAY_IMAGE="ghcr.io/${REPO}/xray:${TAG}"
+export GIT_SHA="$TAG"
+export BUILD_VERSION="$TAG"
+export PANEL_PORT="{{ panel_port }}"
+export XRAY_API_PORT="{{ xray_api_port }}"
+docker compose -f compose.yml config --quiet
+docker compose -f compose.yml pull --quiet
+docker compose -f compose.yml up -d --remove-orphans
+for _ in $(seq 1 30); do
+  if curl -fsS "http://127.0.0.1:{{ panel_port }}/healthz" >/dev/null 2>&1 \
+     && curl -fsS "http://127.0.0.1:{{ panel_port }}/readyz" >/dev/null 2>&1; then
+    echo "deployed env=${ENV_NAME} tag=${TAG}"
+    exit 0
+  fi
+  sleep 2
+done
+echo "health gate failed for env=${ENV_NAME} tag=${TAG}"
+docker compose -f compose.yml logs --tail=80
+exit 1

@@ -1,0 +1,7 @@
+# Copy to vault.yml and encrypt with: ansible-vault encrypt vault.yml
+# Nothing here may be committed with a real value.
+vault_vless_id: ""            # uuid given to the app
+vault_reality_private_key: "" # xray x25519 private key
+vault_reality_short_id: ""    # hex, 2-16 chars
+vault_kcp_seed: ""            # kcp seed string
+vault_ghcr_token: ""          # read:packages token for pulling images

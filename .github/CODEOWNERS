@@ -1,0 +1,5 @@
+# هر تغییر در اینفرا و CI نیازمند بازبینیِ مالکِ زیرساخت است، حتی اگر یک خط باشد.
+/infra/              @infra-owner
+/.github/            @infra-owner
+/SECURITY.md         @infra-owner
+/apps/panel/         @backend-owner

@@ -1,0 +1,46 @@
+name: deploy
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: target environment
+        type: choice
+        options: [stage, prod]
+        required: true
+      image_tag:
+        description: image tag (usually a git sha)
+        required: true
+permissions:
+  contents: read
+  packages: read
+# One deployment per environment at a time; two people clicking at once must not interleave.
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Approvals, required reviewers and environment secrets live here. prod should require a reviewer.
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: deploy over ssh
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          PT_ENV: ${{ inputs.environment }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519; chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts; chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -i ~/.ssh/id_ed25519 "$USER_NAME@$HOST" \
+            "cd /opt/ptunnel && ./deploy.sh '$PT_ENV' '$IMAGE_TAG' '$REPO'"
+      - name: public health gate
+        env:
+          PUBLIC_URL: ${{ secrets.PUBLIC_URL }}
+        run: curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "$PUBLIC_URL/healthz"

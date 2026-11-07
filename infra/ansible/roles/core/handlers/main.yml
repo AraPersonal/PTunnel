@@ -1,0 +1,4 @@
+---
+- name: restart core
+  ansible.builtin.command: "docker restart ptunnel-xray-{{ pt_env }}"
+  changed_when: true

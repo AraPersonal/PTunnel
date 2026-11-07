@@ -1,0 +1,61 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  panel:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/panel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/panel/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - name: the built image would answer liveness
+        run: |
+          node src/server.js & sleep 1
+          curl -fsS http://127.0.0.1:8080/healthz
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: no secrets in tracked files
+        run: bash tools/check-no-secrets.sh
+      - name: every yaml parses
+        run: |
+          python3 - <<'PY'
+          import glob, sys, yaml
+          files = glob.glob('infra/**/*.yml', recursive=True) + glob.glob('.github/**/*.yml', recursive=True)
+          bad = []
+          for f in files:
+              try:
+                  yaml.safe_load(open(f, encoding='utf-8'))
+              except Exception as e:
+                  bad.append(f'{f}: {e}')
+          print('\n'.join(bad))
+          sys.exit(1 if bad else 0)
+          PY
+  infra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install ansible-core
+      - run: ansible-galaxy collection install community.docker community.general
+      - name: playbook syntax
+        env:
+          ANSIBLE_CONFIG: infra/ansible/ansible.cfg
+        run: |
+          ansible-playbook -i infra/ansible/inventories/stage/hosts.yml infra/ansible/playbooks/site.yml --syntax-check
+          ansible-playbook -i infra/ansible/inventories/prod/hosts.yml infra/ansible/playbooks/site.yml --syntax-check

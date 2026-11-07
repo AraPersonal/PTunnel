@@ -1,0 +1,11 @@
+---
+# One playbook for every environment. What differs between stage and prod is the inventory's variables,
+# never the tasks: that is what makes "it worked on stage" mean something.
+- name: relay box
+  hosts: relay
+  gather_facts: true
+  roles:
+    - base
+    - docker
+    - core
+    - proxy

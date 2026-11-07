@@ -1,0 +1,12 @@
+node_modules/
+npm-debug.log*
+.env
+.env.*
+!.env.example
+*.vault
+.vault-pass
+infra/ansible/*.retry
+*.log
+*.apk
+.DS_Store
+coverage/

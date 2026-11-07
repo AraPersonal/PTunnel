@@ -1,0 +1,29 @@
+---
+- name: nginx and certbot
+  ansible.builtin.apt:
+    name:
+      - nginx
+      - certbot
+      - python3-certbot-nginx
+    state: present
+    update_cache: true
+
+- name: panel vhost
+  ansible.builtin.template:
+    src: panel.conf.j2
+    dest: /etc/nginx/sites-available/ptunnel-panel
+    mode: "0644"
+  notify: reload nginx
+
+- name: enable panel vhost
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/ptunnel-panel
+    dest: /etc/nginx/sites-enabled/ptunnel-panel
+    state: link
+  notify: reload nginx
+
+- name: remove the stock vhost
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx

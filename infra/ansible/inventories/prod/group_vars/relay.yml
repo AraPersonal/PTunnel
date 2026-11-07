@@ -1,0 +1,12 @@
+pt_env: prod
+public_host: prod.example.com
+panel_port: 8080
+xray_api_port: 10085
+xray_reality_port: 8080
+xray_kcp_port: 8443
+# Names the core must be able to dial even when the phone's resolver lies. Kept in one place so the
+# sanitised list and the routing rule can never drift apart.
+xray_sniff_domains:
+  - "domain:gemini.google.com"
+  - "domain:alkalimakersuite-pa.googleapis.com"
+  - "regexp:^[a-z0-9][a-z0-9-]*-pa\.googleapis\.com$"

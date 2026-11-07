@@ -1,0 +1,32 @@
+---
+- name: base packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - ca-certificates
+      - jq
+      - unzip
+      - nftables
+    state: present
+    update_cache: true
+
+- name: timezone
+  community.general.timezone:
+    name: "{{ ptunnel_timezone }}"
+
+# Congestion control is a kernel property, so it cannot live in the container; it is set here and
+# asserted, because a box that silently lost BBR would only show up as "the tunnel got slow".
+- name: enable bbr and fq
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/90-ptunnel.conf
+    mode: "0644"
+    content: |
+      net.core.default_qdisc = fq
+      net.ipv4.tcp_congestion_control = bbr
+  notify: reload sysctl
+
+- name: assert bbr is active
+  ansible.builtin.command: sysctl -n net.ipv4.tcp_congestion_control
+  register: cc
+  changed_when: false
+  failed_when: cc.stdout.strip() != 'bbr'
