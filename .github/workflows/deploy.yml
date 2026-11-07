@@ -24,6 +24,8 @@ jobs:
     environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v4
+      - name: lowercase repository
+        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
       - name: deploy over ssh
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -32,7 +34,7 @@ jobs:
           USER_NAME: ${{ secrets.DEPLOY_USER }}
           IMAGE_TAG: ${{ inputs.image_tag }}
           PT_ENV: ${{ inputs.environment }}
-          REPO: ${{ github.repository }}
+          REPO: ${{ env.REPO_LC }}
         run: |
           set -euo pipefail
           install -d -m 700 ~/.ssh

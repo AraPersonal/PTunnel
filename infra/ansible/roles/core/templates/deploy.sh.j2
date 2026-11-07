@@ -5,10 +5,12 @@ set -euo pipefail
 ENV_NAME="${1:?usage: deploy.sh <env> <image-tag> <repo>}"
 TAG="${2:?}"
 REPO="${3:?}"
+# Registry paths are lowercase by definition; the GitHub repository name is not.
+REPO_LC="$(printf %s "$REPO" | tr "[:upper:]" "[:lower:]")"
 cd {{ ptunnel_root }}
 export PT_ENV="$ENV_NAME"
-export PANEL_IMAGE="ghcr.io/${REPO}/panel:${TAG}"
-export XRAY_IMAGE="ghcr.io/${REPO}/xray:${TAG}"
+export PANEL_IMAGE="ghcr.io/${REPO_LC}/panel:${TAG}"
+export XRAY_IMAGE="ghcr.io/${REPO_LC}/xray:${TAG}"
 export GIT_SHA="$TAG"
 export BUILD_VERSION="$TAG"
 export PANEL_PORT="{{ panel_port }}"

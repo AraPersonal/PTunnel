@@ -40,18 +40,7 @@ jobs:
       - name: every yaml parses
         run: |
           python3 -m pip install --quiet pyyaml
-          python3 - <<'PY'
-          import glob, sys, yaml
-          files = glob.glob('infra/**/*.yml', recursive=True) + glob.glob('.github/**/*.yml', recursive=True)
-          bad = []
-          for f in files:
-              try:
-                  yaml.safe_load(open(f, encoding='utf-8'))
-              except Exception as e:
-                  bad.append(f'{f}: {e}')
-          print('\n'.join(bad))
-          sys.exit(1 if bad else 0)
-          PY
+          python3 tools/check-yaml.py
   infra:
     runs-on: ubuntu-latest
     steps:
