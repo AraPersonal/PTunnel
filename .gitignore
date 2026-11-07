@@ -11,3 +11,7 @@ infra/ansible/*.retry
 .DS_Store
 coverage/
 *.part
+apps/android/.gradle/
+apps/android/**/build/
+apps/android/local.properties
+apps/android/app/libs/*.aar

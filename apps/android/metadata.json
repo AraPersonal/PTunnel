@@ -1,0 +1,6 @@
+{
+  "name": "Shield VPN",
+  "description": "Ultra-minimalist Liquid Glass VPN client with physics-based interactive slider, real-time telemetry, and custom server management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

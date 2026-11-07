@@ -50,6 +50,10 @@
 
 جزئیاتِ تصمیم‌ها: `docs/decisions/`.
 
+- چک‌لیستِ کور و نتایجِ اندازه‌گیری: `docs/roadmap-core.md`
+- قراردادِ کلاینت/سرور و مشخصاتِ هستهٔ کلاینت: `docs/integration/`
+- شروعِ کار برای توسعه‌دهندهٔ موبایل: `docs/onboarding/mobile-developer.md`
+
 ## این ریپو از کجا شروع شد
 
 ریپوی GitHub: `github.com/AraPersonal/PTunnel` (پیش از این فقط یک README داشت). تاریخچهٔ v1
