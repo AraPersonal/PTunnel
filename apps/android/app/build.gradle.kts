@@ -122,7 +122,9 @@ dependencies {
   implementation(libs.okhttp)
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
-  implementation(files("libs/libv2ray.aar"))
+  // libv2ray is gone by decision (ADR-0005): the engine behind TunnelCore is the Agent in apps/agent,
+  // which embeds Xray and Hysteria2. No native archive is committed, so the build needs no binary from
+  // outside the repository.
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

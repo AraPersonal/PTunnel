@@ -21,3 +21,7 @@ cd apps/android
 ./gradlew :app:testDebugUnitTest     # تست‌های منطق (بدونِ نیاز به گوشی)
 ./gradlew :app:assembleDebug          # نیاز به Android SDK + AARِ کور
 ```
+
+## امضای بیلد
+
+`debug.keystore` عمداً در گیت است (رمز `android`، فقط برای بیلدِ دیباگ). کلیدِ امضای release هرگز وارد ریپو نمی‌شود و فقط در GitHub Secrets می‌نشیند؛ تا آن زمان فقط بیلد دیباگ ساخته می‌شود.

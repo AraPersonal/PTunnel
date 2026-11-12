@@ -14,14 +14,11 @@ import android.net.TrafficStats
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
-import android.provider.Settings
-import android.util.Base64
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.model.VpnConnectionState
 import com.example.network.PathLadder
-import go.Seq
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,9 +27,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import libv2ray.CoreCallbackHandler
-import libv2ray.CoreController
-import libv2ray.Libv2ray
+import com.example.vpn.core.NoopTunnelCore
+import com.example.vpn.core.TunnelCore
+import com.example.vpn.core.TunnelCoreListener
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.TimeoutException
@@ -46,7 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class ShieldVpnService : VpnService() {
 
     private var tunInterface: ParcelFileDescriptor? = null
-    private var coreController: CoreController? = null
+    private var coreController: TunnelCore? = null
     private var coreLoading = false
     private var explicitStop = false
     private var verificationThread: Thread? = null
@@ -119,34 +116,33 @@ class ShieldVpnService : VpnService() {
     @Volatile
     private var tunnelVerified = false
 
-    private val callback = object : CoreCallbackHandler {
-        override fun startup(): Long {
-            Log.i(TAG, "Xray core started; verifying real tunnel connectivity")
+    private val callback = object : TunnelCoreListener {
+        override fun onCoreStarted() {
+            Log.i(TAG, "Tunnel core started; verifying real tunnel connectivity")
             updateNotification("Verifying tunnel...")
             startTunnelVerification()
-            return 0
         }
 
-        override fun shutdown(): Long {
-            Log.i(TAG, "Xray core stopped")
-            return 0
+        override fun onCoreStopped() {
+            Log.i(TAG, "Tunnel core stopped")
         }
 
-        override fun onEmitStatus(code: Long, message: String?): Long {
+        override fun onCoreStatus(code: Long, message: String?) {
             if (!message.isNullOrBlank()) {
                 Log.i(TAG, "core status: $message")
             }
-            return 0
         }
     }
 
     override fun onCreate() {
         super.onCreate()
         try {
-            initCoreEnvironment()
-            coreController = Libv2ray.newCoreController(callback)
+            // libv2ray is gone (ADR-0005). NoopTunnelCore keeps the ladder, probes and verification logic
+            // exactly as they are and stays honest: it reports not-running, so attempts advance instead of
+            // hanging on an engine that no longer exists. The Agent in apps/agent implements this interface.
+            coreController = NoopTunnelCore(callback)
         } catch (t: Throwable) {
-            Log.e(TAG, "Unable to initialize Xray core", t)
+            Log.e(TAG, "Unable to initialize tunnel core", t)
             VpnRuntime.set(VpnConnectionState.DISCONNECTED, "VPN engine failed to initialize: ${t.message}")
         }
         recovery = TunnelRecovery(this)
@@ -635,7 +631,7 @@ class ShieldVpnService : VpnService() {
     private fun probeLatencyBounded(timeoutMs: Long): Long {
         val core = coreController ?: return -1L
         val future = probeExecutor.submit(
-            java.util.concurrent.Callable { core.measureDelay(GENERATE_204_URL) ?: -1L }
+            java.util.concurrent.Callable { core.measureDelay(GENERATE_204_URL) }
         )
         return try {
             future.get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
@@ -1035,19 +1031,6 @@ class ShieldVpnService : VpnService() {
         verificationStarted.set(false)
     }
 
-    private fun initCoreEnvironment() {
-        if (initialized) return
-        Seq.setContext(applicationContext)
-        val assetPath = getDir("assets", MODE_PRIVATE).absolutePath
-        val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "ptunnel"
-        val base64Key = Base64.encodeToString(
-            androidId.toByteArray(Charsets.UTF_8).copyOf(32),
-            Base64.NO_PADDING or Base64.URL_SAFE
-        )
-        Libv2ray.initCoreEnv(assetPath, base64Key)
-        initialized = true
-    }
-
     private fun startAsForeground() {
         val manager = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -1287,9 +1270,6 @@ class ShieldVpnService : VpnService() {
 
         private const val NEUTRAL_PROBE_PORT = 443
         private const val NEUTRAL_PROBE_TIMEOUT_MS = 2_000
-
-        @Volatile
-        private var initialized = false
 
         const val ACTION_CONNECT = "com.example.vpn.ACTION_CONNECT"
         const val ACTION_DISCONNECT = "com.example.vpn.ACTION_DISCONNECT"
