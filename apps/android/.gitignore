@@ -15,4 +15,5 @@
 .cxx
 local.properties
 .env
-debug.keystore
+# debug.keystore is committed ON PURPOSE: it only signs debug builds (password "android") and CI needs
+# it to produce an installable APK. Release keystores stay out of this repository - see SECURITY.md.
