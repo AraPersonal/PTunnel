@@ -37,10 +37,24 @@ jobs:
           ls -lh app/libs/libv2ray.aar
       - name: unit tests
         run: ./gradlew --no-daemon :app:testDebugUnitTest
-      # assembleDebug signs with the committed debug keystore (password "android"), so no secret is
-      # needed for a preview build. Release signing is a separate, deliberately manual step.
-      - name: assemble debug APK
-        run: ./gradlew --no-daemon :app:assembleDebug
+      - name: prepare release keystore
+        if: ${{ env.RELEASE_KEYSTORE != '' }}
+        env:
+          RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          echo "$RELEASE_KEYSTORE" | base64 -d > app/release.jks
+      - name: assemble APKs
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/apps/android/app/release.jks
+          STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -f app/release.jks ]; then
+            ./gradlew --no-daemon :app:assembleRelease :app:assembleDebug
+          else
+            ./gradlew --no-daemon :app:assembleDebug
+          fi
       - name: report test counts
         if: always()
         run: |
@@ -53,7 +67,15 @@ jobs:
                   t += int(m.group(1)); f += int(m.group(2)) + int(m.group(3))
           print(f'unit tests: {t} run, {f} failed')
           PY
-      - name: upload APK
+      - name: upload release APK
+        if: ${{ hashFiles('apps/android/app/build/outputs/apk/release/app-release.apk') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ptunnel-release-${{ github.sha }}
+          path: apps/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: ptunnel-debug-${{ github.sha }}
