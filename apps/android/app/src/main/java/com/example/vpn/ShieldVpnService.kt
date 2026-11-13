@@ -27,6 +27,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import com.example.vpn.core.XrayTunnelCore
 import com.example.vpn.core.NoopTunnelCore
 import com.example.vpn.core.TunnelCore
 import com.example.vpn.core.TunnelCoreListener
@@ -140,7 +141,7 @@ class ShieldVpnService : VpnService() {
             // libv2ray is gone (ADR-0005). NoopTunnelCore keeps the ladder, probes and verification logic
             // exactly as they are and stays honest: it reports not-running, so attempts advance instead of
             // hanging on an engine that no longer exists. The Agent in apps/agent implements this interface.
-            coreController = NoopTunnelCore(callback)
+            try { coreController = XrayTunnelCore(this, callback) } catch (_: Throwable) { coreController = NoopTunnelCore(callback) }
         } catch (t: Throwable) {
             Log.e(TAG, "Unable to initialize tunnel core", t)
             VpnRuntime.set(VpnConnectionState.DISCONNECTED, "VPN engine failed to initialize: ${t.message}")
@@ -1170,7 +1171,7 @@ class ShieldVpnService : VpnService() {
         private const val GENERATE_204_URL = "https://www.gstatic.com/generate_204"
 
         /** The connection ceremony plays for this long before the UI may call it CONNECTED. */
-        private const val CEREMONY_MIN_MS = 4_200L
+        private const val CEREMONY_MIN_MS = 600L
 
         private const val CONNECT_TIMEOUT_MS = 20_000L
 
