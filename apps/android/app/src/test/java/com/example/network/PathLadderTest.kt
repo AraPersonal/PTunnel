@@ -261,13 +261,13 @@ class PathLadderTest {
         val ordered = PathLadder.orderedEndpoints(
             preferred = null,
             first = "https://86-54-42-124.nip.io/v1/",
-            rest = listOf("https://ptu.beauty/v1/", "https://206-1-101-67.nip.io/v1/")
+            rest = listOf("https://ptu.beauty/v1/", "https://38-17-64-159.nip.io/v1/")
         )
         assertEquals(
             listOf(
                 "https://86-54-42-124.nip.io/v1/",
                 "https://ptu.beauty/v1/",
-                "https://206-1-101-67.nip.io/v1/"
+                "https://38-17-64-159.nip.io/v1/"
             ),
             ordered
         )

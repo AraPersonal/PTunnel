@@ -23,8 +23,8 @@ class EndpointHostTest {
 
     @Test
     fun `a host without a scheme is taken as it stands`() {
-        assertEquals("206-1-101-67.sslip.io", endpointHost("206-1-101-67.sslip.io"))
-        assertEquals("206-1-101-67.sslip.io", endpointHost(" 206-1-101-67.sslip.io/v1/ "))
+        assertEquals("38-17-64-159.sslip.io", endpointHost("38-17-64-159.sslip.io"))
+        assertEquals("38-17-64-159.sslip.io", endpointHost(" 38-17-64-159.sslip.io/v1/ "))
     }
 
     @Test

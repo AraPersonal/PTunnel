@@ -23,12 +23,12 @@ class BoxProbeUrlTest {
             id = "srv_turkey",
             name = "Turkey",
             country = "Turkey",
-            host = "206.1.101.67",
-            domain = "206-1-101-67.sslip.io",
-            apiBase = "https://206-1-101-67.nip.io/v1/"
+            host = "38.17.64.159",
+            domain = "38-17-64-159.sslip.io",
+            apiBase = "https://38-17-64-159.nip.io/v1/"
         )
 
-        assertEquals("https://206-1-101-67.nip.io/s", repository.boxProbeUrl(turkey))
+        assertEquals("https://38-17-64-159.nip.io/s", repository.boxProbeUrl(turkey))
     }
 
     @Test

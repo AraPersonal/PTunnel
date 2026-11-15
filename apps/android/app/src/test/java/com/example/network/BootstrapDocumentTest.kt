@@ -69,7 +69,7 @@ class BootstrapDocumentTest {
         assertTrue("missing the published pin", probes.contains("9.9.9.9"))
         // ...and the addresses the app was built with must survive the merge.
         assertTrue("built-in pins were dropped", probes.contains("86.54.42.124"))
-        assertTrue("built-in pins were dropped", probes.contains("206.1.101.67"))
+        assertTrue("built-in pins were dropped", probes.contains("38.17.64.159"))
     }
 
     @Test
