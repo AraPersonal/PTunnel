@@ -28,8 +28,9 @@
 | `GET /v1/user/profile` | موجود | پروفایلِ کاربر، حجم/انقضا، کانال |
 | `GET /v1/client/xray?tag=<tag>` | موجود | پروفایلِ تونل برای همان تگ |
 | `GET /v1/presets` | مصوب (ADR-0007) | پریست‌های پیشنهادی اپراتوری برای کالیبراسیون و اسکن خودکار (منطقِ اجرایی: design/0001) |
-| `POST /v1/presets/report` | **پیشنهادی (design/0001)** | گزارشِ کانفیگِ پایدار کلاینت برای اعتبارسنجی اشتراکی (فقط بعد از پنجرهٔ پایداری + throughput چانکی) |
-| `GET /v1/operators` | **پیشنهادی (design/0001)** | فهرست operator_tag + نگاشت MNC/ASN + فهرست دامنهٔ داخلیِ به‌روزشدنی |
+| `POST /v1/presets/report` | مصوب (design/0001) | گزارشِ کانفیگِ پایدار کلاینت برای اعتبارسنجی اشتراکی (فقط بعد از پنجرهٔ پایداری + throughput چانکی) |
+| `GET /v1/operators` | مصوب (design/0001) | فهرست operator_tag + نگاشت MNC/ASN (شامل MVNO) + فهرست دامنهٔ داخلیِ built-in |
+| `/v1/admin/{operators,presets/*,domestic}` | مصوب (design/0001 §۷.۴) | override دستیِ ادمین (نقش admin، audit، `source=admin`) |
 | `GET /v1/locations` | موجود | فهرستِ باکس‌ها و کشور |
 | `GET /v1/app/latest` | موجود | متادیتای آپدیتِ **امضاشده** |
 | `POST /internal/reachability` | داخلی | گزارشِ دسترس‌پذیری (شبکه /۲۴، نتیجه) |
