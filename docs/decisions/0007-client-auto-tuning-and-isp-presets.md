@@ -3,6 +3,7 @@
 - وضعیت: **پذیرفته**
 - تاریخ: 2026-11-15
 - مرتبط با: [ADR-0001](file:///c:/Users/rahati.amirreza/Documents/PTunnel/docs/decisions/0001-engine-and-panel.md)، [ADR-0005](file:///c:/Users/rahati.amirreza/Documents/PTunnel/docs/decisions/0005-client-core.md)، [ADR-0006](file:///c:/Users/rahati.amirreza/Documents/PTunnel/docs/decisions/0006-resilient-transports-and-anti-throttling.md)
+- طراحی اجرایی: [docs/design/0001-network-discovery-and-split-tunnel.md](../design/0001-network-discovery-and-split-tunnel.md) (۲۰۲۶-۱۱-۱۷) — اصل ۱ (نفی هاردکد) را شفاف می‌کند: **تگ هویتِ اپراتور ثابت است، ولی نگاشتِ اپراتور→پارامتر هرگز هاردکد نمی‌شود**؛ زیرمجموعهٔ کانفیگ از ردیف‌های اعتبارسنجیِ `(operator_tag, network_key, config_id)` زاده می‌شود، نه از پیش‌تعریفِ منطقه‌ای. دروازهٔ صلاحیت، throughput چانکی است (نه 204)، و report-back فقط بعد از پنجرهٔ پایداری + تأیید بایتِ سمت سرور.
 
 ## ۱) زمینه و مسئله
 
