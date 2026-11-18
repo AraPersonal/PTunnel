@@ -117,8 +117,14 @@
 
 ### آیتم‌های افزوده از design/0001 (منطق قبل از کد)
 
-- [ ] مدل داده: `operator_tag` (enumِ هویتِ ثابت، قابل‌گسترش از سرور) + `network_key` (حریم‌محور: MCC/MNC یا ASN + /24 + region درشتِ کشف‌شده) + `config_id` (هشِ شکلِ پارامتر، بدون secret) + ردیف اعتبارسنجی `candidate→validated→retired`
+- [ ] مدل داده: `operator_tag` (رجیستریِ **بازِ** هویت: رشدِ خودکار از کلاینت + override ادمین) + `network_key` (حریم‌محور: MCC/MNC یا ASN + /24 + region درشتِ کشف‌شده) + `config_id` (هشِ شکلِ پارامتر، بدون secret) + ردیف اعتبارسنجی `candidate→validated→retired`
 - [ ] `POST /v1/presets/report` + `GET /v1/operators` (نگاشت MNC/ASN + فهرست دامنهٔ داخلیِ به‌روزشدنی)
+- [ ] **ثبتِ خودکارِ اپراتور/نتِ تازه (خواستهٔ ۷):** جدول `operators` با `operator_key` (`m.<mcc>.<mnc>` / `a.<asn>`) + `status: provisional→confirmed→merged` + `aliases`/`merged_into` + `source: client|server|admin` و audit
+- [ ] `POST /v1/operators/observe` روی **مسیر محافظت‌شده/فیزیکی** (سرور IPِ مبدأ را مستقل می‌بیند؛ ردِ IPِ باکس‌های خودمان؛ `mismatch` روی ادعای ناسازگار) + upsertِ خودکارِ operator/network در `presets` و `report`
+- [ ] **کشفِ سمت سرور مستقل از بیلدِ کلاینت:** ساختِ ردیف از IPِ هر درخواستِ احرازشده روی مسیر فیزیکی (login/reachability) + `K_op=3` کلاینتِ مستقل یا تأیید ادمین برای `confirmed`
+- [ ] ضدِ مسموم‌سازیِ رجیستری: کلیدِ عددیِ مشتق (نه نامِ دلخواه)، sanitizeِ `suggested_label`، rate-limit per-uid (≤۱۰ observe/روز) + سقفِ سراسریِ روزانه، ادغامِ هم‌ASN/هم‌MNC، آرشیوِ ردیفِ بی‌نمونه بعد از R
+- [ ] مسیرِ کاربرِ اولِ نتِ تازه: `provisional` فوراً قابل استفاده + seedهای همان `network_type` + کشِ محلی (بدون معطلیِ ادمین/اسکن کامل)؛ UI با برچسبِ «تازه‌کشف‌شده · تأییدنشده»
+- [ ] مسیرهای ادمینِ رجیستری: `confirm` / `rename` / `merge` (حفظِ کلید و alias تا کشِ کاربران نشکند)
 - [ ] **دروازهٔ throughput چانکی** به‌جای اتصالِ صرفاً با 204 (۲MiB/۵۱۲KiB برای اسکن، ۸MiB برای پذیرش؛ ≥۵۰۰KB/s) — اصلاحِ تلهٔ per-flow
 - [ ] **پنجرهٔ پایداری** قبل از report (≥۳–۵ دقیقه، death_rate≤D) + اعتبارسنجی سمت سرور با **تأیید بایتِ inbound** و حذف outlier (median+MAD، K کلاینت مستقل)
 - [ ] **اینترفیس محافظت‌شدهٔ جدا** (`VpnService.protect()` + `bindProcessToNetwork`) برای پروب/کنترل و **مسیر داخلی (split-tunnel)**؛ دسته‌بندی resolve→classify→route با **fail-closed**؛ کران DNS/IPv6؛ تفکیک از geo-exit
