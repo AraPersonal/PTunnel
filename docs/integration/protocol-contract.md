@@ -27,15 +27,21 @@
 | `POST /v1/login` | موجود | ورود؛ پاسخ شاملِ توکن، پلن، و **`channel: prod\|beta`** |
 | `GET /v1/user/profile` | موجود | پروفایلِ کاربر، حجم/انقضا، کانال |
 | `GET /v1/client/xray?tag=<tag>` | موجود | پروفایلِ تونل برای همان تگ |
-| `GET /v1/presets` | مصوب (ADR-0007) | پریست‌های پیشنهادی اپراتوری برای کالیبراسیون و اسکن خودکار (منطقِ اجرایی: design/0001) |
-| `POST /v1/presets/report` | مصوب (design/0001) | گزارشِ کانفیگِ پایدار کلاینت برای اعتبارسنجی اشتراکی (فقط بعد از پنجرهٔ پایداری + throughput چانکی) |
-| `GET /v1/operators` | مصوب (design/0001) | رجیستریِ **بازِ** اپراتورها (`operator_key` + tag + status) + نگاشت MNC/ASN (شامل MVNO) + فهرست دامنهٔ داخلیِ built-in؛ با `ETag`/`version` |
-| `POST /v1/operators/observe` | مصوب (design/0001 §۷.۵) | **ثبتِ خودکارِ اپراتور/نتِ تازه توسط کلاینت**؛ فقط روی مسیر محافظت‌شده/فیزیکی؛ پاسخ `provisional` + `network_key` (idempotent، rate-limited) |
-| `/v1/admin/{operators,operators/confirm,operators/rename,operators/merge,presets/*,domestic}` | مصوب (design/0001 §۷.۴) | override دستیِ ادمین (نقش admin، audit، `source=admin`)؛ **دروازهٔ ورودِ نتِ تازه نیست** |
+| `GET /v1/presets` | **موجود در پنل** (۲۰۲۶-۱۱-۱۸) | پریست‌های پیشنهادی اپراتوری برای کالیبراسیون و اسکن خودکار (منطقِ اجرایی: design/0001) |
+| `POST /v1/presets/report` | **موجود در پنل** (۲۰۲۶-۱۱-۱۸) | گزارشِ کانفیگِ پایدار کلاینت برای اعتبارسنجی اشتراکی (فقط بعد از پنجرهٔ پایداری + throughput چانکی) |
+| `GET /v1/operators` | **موجود در پنل** (۲۰۲۶-۱۱-۱۸) | رجیستریِ **بازِ** اپراتورها (`operator_key` + tag + status) + نگاشت MNC/ASN (شامل MVNO) + فهرست دامنهٔ داخلیِ built-in؛ با `ETag`/`version` |
+| `POST /v1/operators/observe` | **موجود در پنل** (۲۰۲۶-۱۱-۱۸) | **ثبتِ خودکارِ اپراتور/نتِ تازه توسط کلاینت**؛ فقط روی مسیر محافظت‌شده/فیزیکی؛ پاسخ `provisional` + `network_key` (idempotent، rate-limited) |
+| `/v1/admin/{operators,operators/confirm,operators/rename,operators/merge,presets/*,domestic,settings,audit}` | **موجود در پنل** (۲۰۲۶-۱۱-۱۸) | override دستیِ ادمین (نقش admin، audit، `source=admin`)؛ **دروازهٔ ورودِ نتِ تازه نیست** |
 | `GET /v1/locations` | موجود | فهرستِ باکس‌ها و کشور |
 | `GET /v1/app/latest` | موجود | متادیتای آپدیتِ **امضاشده** |
 | `POST /internal/reachability` | داخلی | گزارشِ دسترس‌پذیری (شبکه /۲۴، نتیجه) |
 | `POST /v1/client/telemetry` | **در S2** | رخدادهای کلاینت: تلاشِ ورود، خطای هسته، پلهٔ موفق |
+
+> **واحدِ throughput در پیاده‌سازیِ پنل:** فیلد `throughput_kBps` (و `p50_throughput_kBps`) = **کیلوبایت بر ثانیه**. نامِ `kbps` در مثال‌های قدیمیِ design/0001 به همین معنی است و به‌عنوان تاریخچه مانده.
+>
+> **احراز هویتِ مسیرهای کشف:** هر چهار مسیرِ بالا `Authorization: Bearer` می‌خواهند؛ مسیرهای `/v1/admin/*` علاوه بر آن نقشِ `admin` (از `PT_ADMIN_USERNAMES`) وگرنه 403.
+>
+> **وضعیتِ اعتبارسنجی تا فاز ۵:** بدونِ تلمتری بایتِ سرور، پاسخِ `report` حداکثر `status: candidate` است (`server_corroborated: false`). این عمدی است، نه باگ.
 
 ## ۴) احراز هویت و هدرها
 

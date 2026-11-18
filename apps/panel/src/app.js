@@ -4,6 +4,8 @@ import crypto from 'node:crypto';
 import { initDb, verifyPassword, hashPassword } from './db.js';
 import { signJwt, authMiddleware } from './auth.js';
 import { buildClientConfig } from './profile.js';
+import { createIpIntel, loadPrefixTable } from './ipIntel.js';
+import { createDiscovery, registerDiscoveryRoutes } from './discovery.js';
 
 const startedAt = Date.now();
 
@@ -71,11 +73,23 @@ function sessionPayload(user, token, config) {
 
 export function createApp(config, deps = {}) {
   const probe = deps.probe ?? tcpProbe;
-  const db = deps.db ?? initDb(config.dbPath);
+  const db = deps.db ?? initDb(config.dbPath, { adminUsernames: config.adminUsernames });
   const app = express();
 
   app.disable('x-powered-by');
+  // The panel is behind the host's reverse proxy; req.ip must be the user's line, not the proxy.
+  app.set('trust proxy', config.trustProxy);
   app.use(express.json({ limit: '64kb' }));
+
+  const ipIntel = deps.ipIntel ?? createIpIntel({
+    ownIps: config.ownBoxIps,
+    prefixes: loadPrefixTable(config.asnDbPath),
+  });
+  const discovery = deps.discovery ?? createDiscovery({
+    db, config, ipIntel, serverEvidence: deps.serverEvidence ?? null,
+  });
+  discovery.seedOperators();
+  discovery.seedDoors();
 
   // --- Health & Diagnostic Endpoints ---
   app.get('/healthz', (_req, res) => {
@@ -215,6 +229,9 @@ export function createApp(config, deps = {}) {
       user.uid
     );
 
+    // Login arrives over the physical line, so the server can register the network itself.
+    discovery.noteServerLine(user.uid, req.ip);
+
     const token = signJwt({ uid: user.uid, username: user.username, channel: user.channel }, config.jwtSecret);
     res.json(sessionPayload(user, token, config));
   };
@@ -258,6 +275,12 @@ export function createApp(config, deps = {}) {
 
   // --- Authenticated User Endpoints ---
   const auth = authMiddleware(config.jwtSecret, db);
+  const adminAuth = (req, res, next) => auth(req, res, () => {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'forbidden', message: 'Admin role required' });
+    }
+    next();
+  });
 
   const handleProfile = (req, res) => {
     const token = req.headers.authorization.slice(7).trim();
@@ -399,6 +422,9 @@ export function createApp(config, deps = {}) {
     res.setHeader('Content-Length', chunksize);
     res.send(Buffer.alloc(chunksize, 0));
   });
+
+  // --- Network discovery & the open operator registry (docs/design/0001) ---
+  registerDiscoveryRoutes(app, { discovery, auth, adminAuth });
 
   return app;
 }

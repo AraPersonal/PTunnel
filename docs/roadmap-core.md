@@ -86,12 +86,15 @@
 | 2026-11-04 | Hostiran | reality (v1) | 8080/tcp | ۱.۱۴MB/s | ۲۹KB/s | ۵/۱۰ | فقط نردبان |
 | 2026-11-04 | Hostiran | trojan/vmess (v1) | 2053/2083 | — | ۰.۴–۶KB/s | — | کنار |
 | 2026-11-04 | Hostiran | CDN (دامنهٔ ما) | 2083/tls | 000 | 000 | — | مرده (SNI) |
+| 2026-11-18 | لوکال (بدون خطِ ایرانی) | پنل: رجیستری باز + presets/observe | — | — | — | — | ۴۱/۴۱ تستِ پنل پاس؛ **عددِ خط نداریم** |
 |  |  | Hysteria2 |  |  |  |  |  |
 |  |  | TUIC |  |  |  |  |  |
 |  |  | ShadowTLS |  |  |  |  |  |
 |  |  | AmneziaWG |  |  |  |  |  |
 
 > هر تست جدید: یک ردیف اینجا، با تاریخ و نامِ خط. بدونِ این ردیف، تغییرِ چرخش ممنوع.
+>
+> ردیفِ ۲۰۲۶-۱۱-۱۸ **تستِ واحدِ پنل** است (۴۱ تست، `node --test` در `apps/panel`)، نه اندازه‌گیریِ خطِ ایرانی. تا وقتی پروبِ چانکی روی خطِ واقعی اجرا نشده، هیچ تغییرِ چرخشی مجاز نیست.
 
 ## فاز ۸ — ویژگی‌هایی که در باینریِ ۰.۶۶ بودند و سورسشان نداریم
 
@@ -108,7 +111,7 @@
 
 > طراحی اجراییِ معتبر: [docs/design/0001-network-discovery-and-split-tunnel.md](design/0001-network-discovery-and-split-tunnel.md) (۲۰۲۶-۱۱-۱۷، **تصمیم‌ها قفل شد — منتظر چراغ سبز کاربر برای کد**). آیتم‌های زیر با آن سند هم‌راستا شده‌اند؛ «ویزارد تبلیغاتی» و برچسب «بهینه‌سازی…» منسوخ و به «فقط scanning + واقعیت‌ها» و «اسکن مجدد» تغییر می‌کنند (متن اصلی در spec به‌عنوان تاریخچه می‌ماند).
 
-- [ ] افزودن جدول `isp_presets` و اندپوینت `GET /v1/presets` در پنل (`apps/panel`)
+- [x] افزودن جدول `isp_presets` و اندپوینت `GET /v1/presets` در پنل (`apps/panel`) — ۲۰۲۶-۱۱-۱۸: با نامِ `preset_configs` + `preset_validations` پیاده شد (شکلِ کانفیگ از ردیفِ اعتبارسنجی جداست)
 - [ ] موتور اسکن سریع و ماتریسی در کلاینت (`NetworkProbeEngine` برای فرگمنت، پورت هیستریا، AWG و CDN)
 - [ ] ویزارد کالیبراسیون خودکار در اولین اجرا (First-Run Calibration Onboarding)
 - [ ] ثبت شنونده تغییر شبکه در لایه سیستم‌عامل (`ConnectivityManager.NetworkCallback`) جهت سوییچ خودکار بین نمایه‌های ذخیره‌شده
@@ -117,16 +120,16 @@
 
 ### آیتم‌های افزوده از design/0001 (منطق قبل از کد)
 
-- [ ] مدل داده: `operator_tag` (رجیستریِ **بازِ** هویت: رشدِ خودکار از کلاینت + override ادمین) + `network_key` (حریم‌محور: MCC/MNC یا ASN + /24 + region درشتِ کشف‌شده) + `config_id` (هشِ شکلِ پارامتر، بدون secret) + ردیف اعتبارسنجی `candidate→validated→retired`
-- [ ] `POST /v1/presets/report` + `GET /v1/operators` (نگاشت MNC/ASN + فهرست دامنهٔ داخلیِ به‌روزشدنی)
-- [ ] **ثبتِ خودکارِ اپراتور/نتِ تازه (خواستهٔ ۷):** جدول `operators` با `operator_key` (`m.<mcc>.<mnc>` / `a.<asn>`) + `status: provisional→confirmed→merged` + `aliases`/`merged_into` + `source: client|server|admin` و audit
-- [ ] `POST /v1/operators/observe` روی **مسیر محافظت‌شده/فیزیکی** (سرور IPِ مبدأ را مستقل می‌بیند؛ ردِ IPِ باکس‌های خودمان؛ `mismatch` روی ادعای ناسازگار) + upsertِ خودکارِ operator/network در `presets` و `report`
-- [ ] **کشفِ سمت سرور مستقل از بیلدِ کلاینت:** ساختِ ردیف از IPِ هر درخواستِ احرازشده روی مسیر فیزیکی (login/reachability) + `K_op=3` کلاینتِ مستقل یا تأیید ادمین برای `confirmed`
-- [ ] ضدِ مسموم‌سازیِ رجیستری: کلیدِ عددیِ مشتق (نه نامِ دلخواه)، sanitizeِ `suggested_label`، rate-limit per-uid (≤۱۰ observe/روز) + سقفِ سراسریِ روزانه، ادغامِ هم‌ASN/هم‌MNC، آرشیوِ ردیفِ بی‌نمونه بعد از R
-- [ ] مسیرِ کاربرِ اولِ نتِ تازه: `provisional` فوراً قابل استفاده + seedهای همان `network_type` + کشِ محلی (بدون معطلیِ ادمین/اسکن کامل)؛ UI با برچسبِ «تازه‌کشف‌شده · تأییدنشده»
-- [ ] مسیرهای ادمینِ رجیستری: `confirm` / `rename` / `merge` (حفظِ کلید و alias تا کشِ کاربران نشکند)
+- [x] مدل داده: `operator_tag` (رجیستریِ **بازِ** هویت: رشدِ خودکار از کلاینت + override ادمین) + `network_key` (حریم‌محور: MCC/MNC یا ASN + /24 + region درشتِ کشف‌شده) + `config_id` (هشِ شکلِ پارامتر، بدون secret) + ردیف اعتبارسنجی `candidate→validated→retired` — ۲۰۲۶-۱۱-۱۸، `apps/panel/src/db.js` + `discovery.js`
+- [x] `POST /v1/presets/report` + `GET /v1/operators` (نگاشت MNC/ASN + فهرست دامنهٔ داخلیِ به‌روزشدنی) — ۲۰۲۶-۱۱-۱۸، با ETag/304 و `domestic.suffixes`
+- [x] **ثبتِ خودکارِ اپراتور/نتِ تازه (خواستهٔ ۷):** جدول `operators` با `operator_key` (`m.<mcc>.<mnc>` / `a.<asn>`) + `status: provisional→confirmed→merged` + `aliases`/`merged_into` + `source: client|server|admin` و audit — ۲۰۲۶-۱۱-۱۸
+- [x] `POST /v1/operators/observe` روی **مسیر محافظت‌شده/فیزیکی** (سرور IPِ مبدأ را مستقل می‌بیند؛ ردِ IPِ باکس‌های خودمان؛ `mismatch` روی ادعای ناسازگار) + upsertِ خودکارِ operator/network در `presets` و `report` — ۲۰۲۶-۱۱-۱۸ سمتِ سرور؛ **مسیرِ محافظت‌شدهٔ کلاینت هنوز باز است** (آیتم پایین)
+- [x] **کشفِ سمت سرور مستقل از بیلدِ کلاینت:** ساختِ ردیف از IPِ هر درخواستِ احرازشده روی مسیر فیزیکی (login/reachability) + `K_op=3` کلاینتِ مستقل یا تأیید ادمین برای `confirmed` — ۲۰۲۶-۱۱-۱۸: login پیاده شد؛ reachability هنوز به آن وصل نیست
+- [ ] ضدِ مسموم‌سازیِ رجیستری: کلیدِ عددیِ مشتق (نه نامِ دلخواه)، sanitizeِ `suggested_label`، rate-limit per-uid (≤۱۰ observe/روز) + سقفِ سراسریِ روزانه، ادغامِ هم‌ASN/هم‌MNC، آرشیوِ ردیفِ بی‌نمونه بعد از R — **بخشِ عمده ۲۰۲۶-۱۱-۱۸ پیاده شد** (کلیدِ عددی، sanitize، سهمیهٔ per-uid و سراسری، merge با alias، قفلِ هویتِ ادمین)؛ **آرشیوِ ردیفِ بی‌نمونه بعد از R هنوز نه**
+- [ ] مسیرِ کاربرِ اولِ نتِ تازه: `provisional` فوراً قابل استفاده + seedهای همان `network_type` + کشِ محلی (بدون معطلیِ ادمین/اسکن کامل)؛ UI با برچسبِ «تازه‌کشف‌شده · تأییدنشده» — **سمتِ سرور ۲۰۲۶-۱۱-۱۸ پیاده شد** (provisional + seed با status صریح `seed`)؛ کشِ محلی و برچسبِ UI هنوز نه
+- [x] مسیرهای ادمینِ رجیستری: `confirm` / `rename` / `merge` (حفظِ کلید و alias تا کشِ کاربران نشکند) — ۲۰۲۶-۱۱-۱۸، همراه `validate`/`retire`/`seed`/`domestic`/`settings` و `GET /v1/admin/audit`
 - [ ] **دروازهٔ throughput چانکی** به‌جای اتصالِ صرفاً با 204 (۲MiB/۵۱۲KiB برای اسکن، ۸MiB برای پذیرش؛ ≥۵۰۰KB/s) — اصلاحِ تلهٔ per-flow
-- [ ] **پنجرهٔ پایداری** قبل از report (≥۳–۵ دقیقه، death_rate≤D) + اعتبارسنجی سمت سرور با **تأیید بایتِ inbound** و حذف outlier (median+MAD، K کلاینت مستقل)
+- [ ] **پنجرهٔ پایداری** قبل از report (≥۳–۵ دقیقه، death_rate≤D) + اعتبارسنجی سمت سرور با **تأیید بایتِ inbound** و حذف outlier (median+MAD، K کلاینت مستقل) — **سمتِ سرور ۲۰۲۶-۱۱-۱۸ پیاده شد** (پنجرهٔ ۳ دقیقه، `probe_method` فقط رِنج، median+MAD، K=3/N=6)؛ **تأییدِ بایتِ inbound وابسته به فاز ۵ است**: تا آن موقع هر ردیفِ جمعیتی حداکثر `candidate` می‌ماند (قلابِ `serverEvidence` آماده است)
 - [ ] **اینترفیس محافظت‌شدهٔ جدا** (`VpnService.protect()` + `bindProcessToNetwork`) برای پروب/کنترل و **مسیر داخلی (split-tunnel)**؛ دسته‌بندی resolve→classify→route با **fail-closed**؛ کران DNS/IPv6؛ تفکیک از geo-exit
 - [ ] **UI فقط-scanning**: کلمهٔ «scanning»/«connected» + کارت واقعیت‌ها (operator/SIM/region/مسیر/تأخیر/throughput/پایداری/confidence)؛ حذف رشته‌های تبلیغاتی
 - [ ] **داوری با نردبان**: موتور کشف فقط مشاور؛ ماشینِ حالتِ اتصال تنها مالکِ کانفیگِ فعال (جلوگیری از دو-سوئیچر)
