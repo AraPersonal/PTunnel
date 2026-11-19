@@ -3,6 +3,10 @@ package com.example.viewmodel
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.TrafficStats
 import android.util.Log
 import androidx.core.content.ContextCompat
@@ -23,8 +27,16 @@ import com.example.network.REACHABILITY_SERVER_UNREACHABLE
 import com.example.network.REACHABILITY_TUNNEL_FAILED
 import com.example.network.PathLadder
 import com.example.network.VpnBackendRepository
+import com.example.network.discovery.DiscoveryApiClient
+import com.example.network.discovery.DomesticSplitTunnel
+import com.example.network.discovery.NetworkDetector
+import com.example.network.discovery.NetworkIdentity
+import com.example.network.discovery.NetworkProbeEngine
+import com.example.network.discovery.PresetCandidateDto
+import com.example.network.discovery.StabilityMonitor
 import com.example.network.shouldFallBackToCdn
 import com.example.network.shouldEndSession
+import com.example.ui.components.DiscoveryRealityState
 import com.example.ui.components.VpnTrafficSample
 import com.example.update.AppUpdateInfo
 import com.example.update.UpdateInstaller
@@ -48,6 +60,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONObject
 import java.util.Locale
 
 data class VpnUiState(
@@ -84,7 +97,9 @@ data class VpnUiState(
     val updateState: UpdateState = UpdateState.Idle,
     val updatePromptVisible: Boolean = false,
     val installedVersionName: String = "",
-    val statusBannerMessage: String? = null
+    val statusBannerMessage: String? = null,
+    val discoveryReality: DiscoveryRealityState = DiscoveryRealityState(),
+    val isScanning: Boolean = false
 ) {
     val selectedServer: VpnServer?
         get() = servers.find { it.id == selectedServerId } ?: servers.firstOrNull()
@@ -97,6 +112,14 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = VpnBackendRepository()
     private val prefs = application.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private val discoveryApiClient = DiscoveryApiClient()
+    private val networkDetector = NetworkDetector(application)
+    private val networkProbeEngine = NetworkProbeEngine(application, discoveryApiClient, networkDetector)
+    private val stabilityMonitor = StabilityMonitor(discoveryApiClient)
+    private var activeDiscoveryCandidate: PresetCandidateDto? = null
+    private var activeNetworkIdentity: NetworkIdentity? = null
+    private var networkSwitchCallback: ConnectivityManager.NetworkCallback? = null
 
     private val _uiState = MutableStateFlow(VpnUiState())
     val uiState: StateFlow<VpnUiState> = _uiState.asStateFlow()
@@ -116,16 +139,27 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             ?.takeIf { id -> DEFAULT_LOCATIONS.any { it.id == id } }
             ?: DEFAULT_LOCATIONS.first().id
 
+        val initialIdentity = networkDetector.detect()
         _uiState.update {
             it.copy(
                 locationMode = savedMode,
                 locations = DEFAULT_LOCATIONS,
                 selectedLocationId = savedLocationId,
-                installedVersionName = UpdateInstaller.installedVersionName(application)
+                installedVersionName = UpdateInstaller.installedVersionName(application),
+                discoveryReality = it.discoveryReality.copy(
+                    operatorDisplayName = initialIdentity.displayName,
+                    operatorTag = initialIdentity.operatorTag,
+                    simDetails = initialIdentity.simDetails,
+                    networkType = initialIdentity.networkType,
+                    region = initialIdentity.region,
+                    confidence = initialIdentity.confidence,
+                    isNewOperator = initialIdentity.isNewOperator
+                )
             )
         }
         observeRuntime()
         restoreSession()
+        registerNetworkSwitchListener()
     }
 
     private fun observeRuntime() {
@@ -139,7 +173,15 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                                 message = "Active tunnel established and verified.",
                                 level = DebugLogLevel.SUCCESS
                             )
-                            state.copy(connectionState = VpnConnectionState.CONNECTED)
+                            state.copy(
+                                connectionState = VpnConnectionState.CONNECTED,
+                                isScanning = false,
+                                discoveryReality = state.discoveryReality.copy(
+                                    status = "connected",
+                                    connectedMinutes = stabilityMonitor.currentStabilityMinutes(),
+                                    deaths = stabilityMonitor.currentDeathCount()
+                                )
+                            )
                         }
                         VpnConnectionState.CONNECTING -> {
                             val activeLoc = state.selectedLocation
@@ -158,8 +200,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                                 message = "VPN tunnel disconnected.",
                                 level = DebugLogLevel.WARN
                             )
+                            stabilityMonitor.onDisconnected()
                             state.copy(
                                 connectionState = VpnConnectionState.DISCONNECTED,
+                                isScanning = false,
+                                discoveryReality = state.discoveryReality.copy(status = "idle"),
                                 sessionSeconds = 0L,
                                 liveThroughputBytesPerSec = 0L,
                                 liveDownloadBytesPerSec = 0L,
@@ -503,6 +548,53 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             // The chosen box must be tried first: a background refresh against another box would
             // otherwise keep the tunnel there and leave the country label lying.
             repository.preferEndpoint(target?.apiBase)
+
+            _uiState.update {
+                it.copy(
+                    isScanning = true,
+                    discoveryReality = it.discoveryReality.copy(status = "scanning")
+                )
+            }
+
+            // Run two-phase discovery calibration (Phase 1 fast presets probe; Phase 2 matrix scan)
+            val discoveryResult = runCatching {
+                networkProbeEngine.discoverAndTune(
+                    authToken = state.userProfile.authToken,
+                    baseConfig = config,
+                    forceRescan = false,
+                    onProgress = { status, _ ->
+                        _uiState.update { s ->
+                            s.copy(
+                                isScanning = true,
+                                discoveryReality = s.discoveryReality.copy(status = status)
+                            )
+                        }
+                    }
+                ).getOrNull()
+            }.getOrNull()
+
+            if (discoveryResult != null) {
+                activeDiscoveryCandidate = discoveryResult.selectedCandidate
+                activeNetworkIdentity = discoveryResult.identity
+                val pathStr = "${discoveryResult.selectedCandidate.engine}/${discoveryResult.selectedCandidate.transport} · port ${discoveryResult.selectedCandidate.params["port"] ?: config.defaultPort}"
+                _uiState.update { s ->
+                    s.copy(
+                        discoveryReality = s.discoveryReality.copy(
+                            operatorDisplayName = discoveryResult.identity.displayName,
+                            operatorTag = discoveryResult.identity.operatorTag,
+                            simDetails = discoveryResult.identity.simDetails,
+                            networkType = discoveryResult.identity.networkType,
+                            region = discoveryResult.identity.region,
+                            path = pathStr,
+                            latencyMs = discoveryResult.latencyMs,
+                            throughputKBps = discoveryResult.throughputKBps,
+                            confidence = discoveryResult.identity.confidence,
+                            isNewOperator = discoveryResult.identity.isNewOperator
+                        )
+                    )
+                }
+            }
+
             var fetched = repository.fetchXrayConfig(config, state.userProfile, "multi")
             if (fetched.isFailure &&
                 (repository.refreshBootstrap() || repository.refreshBootstrapFromDns())
@@ -514,9 +606,23 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             val live = fetched.getOrNull()
             if (live != null) {
                 syncLabelToServedEndpoint()
+                val tuned = if (discoveryResult != null) {
+                    applyCandidateToProfile(live, discoveryResult.selectedCandidate)
+                } else {
+                    DomesticSplitTunnel.injectDomesticRouting(live)
+                }
                 // Keep the last profile that worked the server's verification.
-                prefs.edit().putString(KEY_CACHED_CONFIG, live).apply()
-                startTunnelWith(live)
+                prefs.edit().putString(KEY_CACHED_CONFIG, tuned).apply()
+                if (discoveryResult != null) {
+                    stabilityMonitor.onConnected(
+                        candidate = discoveryResult.selectedCandidate,
+                        identity = discoveryResult.identity,
+                        initialLatencyMs = discoveryResult.latencyMs,
+                        initialThroughputKBps = discoveryResult.throughputKBps
+                    )
+                    stabilityMonitor.startMonitoring(viewModelScope, state.userProfile.authToken, config)
+                }
+                startTunnelWith(tuned)
                 return@launch
             }
 
@@ -555,7 +661,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
 
-            val cached = cachedConfig()
+            val cached = cachedConfig() ?: discoveryResult?.configJson
             if (cached.isNullOrBlank()) {
                 val message = when (verdict) {
                     REACHABILITY_DEVICE_NETWORK -> "Your internet connection is down."
@@ -573,7 +679,169 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
             // Last resort: the cached profile dials our address directly, so it can still get the
             // user online when only the API or the hostname is being blocked.
-            startTunnelWith(cached)
+            val tunedCached = DomesticSplitTunnel.injectDomesticRouting(cached)
+            startTunnelWith(tunedCached)
+        }
+    }
+
+    fun rescanNetwork() {
+        val state = _uiState.value
+        if (!state.isAuthenticated || state.userProfile.authToken.isBlank()) {
+            showBanner("Please sign in first")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isScanning = true,
+                    discoveryReality = it.discoveryReality.copy(status = "scanning")
+                )
+            }
+
+            val config = state.settings.backendConfig
+            val result = networkProbeEngine.discoverAndTune(
+                authToken = state.userProfile.authToken,
+                baseConfig = config,
+                forceRescan = true,
+                onProgress = { status, _ ->
+                    _uiState.update { s ->
+                        s.copy(
+                            isScanning = true,
+                            discoveryReality = s.discoveryReality.copy(status = status)
+                        )
+                    }
+                }
+            )
+
+            result.onSuccess { discovery ->
+                activeDiscoveryCandidate = discovery.selectedCandidate
+                activeNetworkIdentity = discovery.identity
+                val pathStr = "${discovery.selectedCandidate.engine}/${discovery.selectedCandidate.transport} · port ${discovery.selectedCandidate.params["port"] ?: config.defaultPort}"
+
+                _uiState.update { s ->
+                    s.copy(
+                        isScanning = false,
+                        discoveryReality = s.discoveryReality.copy(
+                            status = if (s.connectionState == VpnConnectionState.CONNECTED) "connected" else "idle",
+                            operatorDisplayName = discovery.identity.displayName,
+                            operatorTag = discovery.identity.operatorTag,
+                            simDetails = discovery.identity.simDetails,
+                            networkType = discovery.identity.networkType,
+                            region = discovery.identity.region,
+                            path = pathStr,
+                            latencyMs = discovery.latencyMs,
+                            throughputKBps = discovery.throughputKBps,
+                            confidence = discovery.identity.confidence,
+                            isNewOperator = discovery.identity.isNewOperator
+                        )
+                    )
+                }
+
+                if (_uiState.value.connectionState == VpnConnectionState.CONNECTED) {
+                    val baseProfile = cachedConfig() ?: discovery.configJson
+                    val tuned = applyCandidateToProfile(baseProfile, discovery.selectedCandidate)
+                    startTunnelWith(tuned)
+                    stabilityMonitor.onConnected(
+                        candidate = discovery.selectedCandidate,
+                        identity = discovery.identity,
+                        initialLatencyMs = discovery.latencyMs,
+                        initialThroughputKBps = discovery.throughputKBps
+                    )
+                }
+            }.onFailure { error ->
+                Log.w("PTunnelVM", "Rescan failed: ${error.message}")
+                _uiState.update { s ->
+                    s.copy(
+                        isScanning = false,
+                        discoveryReality = s.discoveryReality.copy(
+                            status = if (s.connectionState == VpnConnectionState.CONNECTED) "connected" else "idle"
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    private fun registerNetworkSwitchListener() {
+        val cm = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            private var lastFingerprint = ""
+            private var debounceJob: Job? = null
+
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                val identity = networkDetector.detect()
+                if (identity.localFingerprint != lastFingerprint && lastFingerprint.isNotBlank()) {
+                    Log.i("PTunnelVM", "Network changed from $lastFingerprint to ${identity.localFingerprint}")
+                    debounceJob?.cancel()
+                    debounceJob = viewModelScope.launch {
+                        delay(1500L)
+                        onNetworkSwitched(identity)
+                    }
+                }
+                lastFingerprint = identity.localFingerprint
+            }
+        }
+        try {
+            cm.registerNetworkCallback(request, callback)
+            networkSwitchCallback = callback
+        } catch (t: Throwable) {
+            Log.w("PTunnelVM", "Unable to register network switch callback: ${t.message}")
+        }
+    }
+
+    private fun onNetworkSwitched(identity: NetworkIdentity) {
+        _uiState.update {
+            it.copy(
+                discoveryReality = it.discoveryReality.copy(
+                    operatorDisplayName = identity.displayName,
+                    operatorTag = identity.operatorTag,
+                    simDetails = identity.simDetails,
+                    networkType = identity.networkType,
+                    region = identity.region,
+                    confidence = identity.confidence,
+                    isNewOperator = identity.isNewOperator
+                )
+            )
+        }
+        if (_uiState.value.connectionState == VpnConnectionState.CONNECTED) {
+            rescanNetwork()
+        }
+    }
+
+    private fun applyCandidateToProfile(profileJson: String, candidate: PresetCandidateDto): String {
+        return try {
+            val root = JSONObject(profileJson)
+            val outbounds = root.optJSONArray("outbounds")
+            if (outbounds != null && outbounds.length() > 0) {
+                val primary = outbounds.optJSONObject(0)
+                if (primary != null) {
+                    val portNum = (candidate.params["port"] as? Number)?.toInt()
+                    if (portNum != null && portNum > 0) {
+                        val settings = primary.optJSONObject("settings")
+                        val vnext = settings?.optJSONArray("vnext")
+                        vnext?.optJSONObject(0)?.put("port", portNum)
+                    }
+
+                    val frag = candidate.params["fragment"] as? Map<*, *>
+                    if (frag != null) {
+                        val streamSettings = primary.optJSONObject("streamSettings") ?: JSONObject().also { primary.put("streamSettings", it) }
+                        val sockopt = streamSettings.optJSONObject("sockopt") ?: JSONObject().also { streamSettings.put("sockopt", it) }
+                        val fragObj = JSONObject().apply {
+                            put("packets", frag["packets"]?.toString() ?: "1-3")
+                            put("length", frag["length"]?.toString() ?: "100-200")
+                            put("interval", frag["interval"]?.toString() ?: "10-20")
+                        }
+                        sockopt.put("fragment", fragObj)
+                    }
+                }
+            }
+            DomesticSplitTunnel.injectDomesticRouting(root.toString())
+        } catch (_: Throwable) {
+            DomesticSplitTunnel.injectDomesticRouting(profileJson)
         }
     }
 
@@ -1070,13 +1338,21 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         uploadBytesPerSec = smoothedTxRate,
                         totalSessionBytes = nextSessionBytes
                     )
+                    val liveThroughputKBps = (combinedThroughputPerSec.toDouble() / 1024.0)
+                    val updatedThroughput = if (liveThroughputKBps > 0.0) liveThroughputKBps else state.discoveryReality.throughputKBps
+                    val updatedReality = state.discoveryReality.copy(
+                        connectedMinutes = stabilityMonitor.currentStabilityMinutes(),
+                        deaths = stabilityMonitor.currentDeathCount(),
+                        throughputKBps = updatedThroughput
+                    )
                     state.copy(
                         sessionSeconds = nextSec,
                         liveThroughputBytesPerSec = combinedThroughputPerSec,
                         liveDownloadBytesPerSec = smoothedRxRate,
                         liveUploadBytesPerSec = smoothedTxRate,
                         sessionTotalBytes = nextSessionBytes,
-                        trafficSamples = (state.trafficSamples + newSample).takeLast(14)
+                        trafficSamples = (state.trafficSamples + newSample).takeLast(14),
+                        discoveryReality = updatedReality
                     )
                 }
 
@@ -1254,6 +1530,16 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             delay(3000L)
             _uiState.update { it.copy(statusBannerMessage = null) }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        networkSwitchCallback?.let {
+            val cm = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            runCatching { cm?.unregisterNetworkCallback(it) }
+        }
+        networkSwitchCallback = null
+        stabilityMonitor.onDisconnected()
     }
 
     companion object {

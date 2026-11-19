@@ -172,6 +172,12 @@ func (a *Agent) detectEngine(rawJSON string) string {
 		if strings.Contains(trans, "hy2") || strings.Contains(trans, "hysteria") || strings.Contains(tag, "hy2") {
 			return "hysteria2"
 		}
+		if trans != "" {
+			return trans
+		}
+		if tag != "" {
+			return tag
+		}
 	}
 	return "xray"
 }

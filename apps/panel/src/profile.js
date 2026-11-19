@@ -157,7 +157,8 @@ export function buildClientConfig(user, tag = 'multi', options = {}) {
     routing: {
       domainStrategy: 'IPIfNonMatch',
       rules: [
-        { type: 'field', ip: ['127.0.0.0/8', '10.0.0.0/8', '192.168.0.0/16'], outboundTag: 'direct' },
+        { type: 'field', domain: ['domain:ir', 'regexp:.*\\.ir$'], outboundTag: 'direct' },
+        { type: 'field', ip: ['geoip:ir', '127.0.0.0/8', '10.0.0.0/8', '192.168.0.0/16'], outboundTag: 'direct' },
         { type: 'field', port: '53', network: 'udp', outboundTag: outbounds[0].tag },
         { type: 'field', network: 'tcp,udp', outboundTag: outbounds[0].tag },
       ],

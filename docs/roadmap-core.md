@@ -109,30 +109,30 @@
 
 ## فاز ۹ — پریست‌های اپراتوری و کالیبراسیون هوشمند کلاینت (ADR-0007)
 
-> طراحی اجراییِ معتبر: [docs/design/0001-network-discovery-and-split-tunnel.md](design/0001-network-discovery-and-split-tunnel.md) (۲۰۲۶-۱۱-۱۷، **تصمیم‌ها قفل شد — منتظر چراغ سبز کاربر برای کد**). آیتم‌های زیر با آن سند هم‌راستا شده‌اند؛ «ویزارد تبلیغاتی» و برچسب «بهینه‌سازی…» منسوخ و به «فقط scanning + واقعیت‌ها» و «اسکن مجدد» تغییر می‌کنند (متن اصلی در spec به‌عنوان تاریخچه می‌ماند).
+> طراحی اجراییِ معتبر: [docs/design/0001-network-discovery-and-split-tunnel.md](design/0001-network-discovery-and-split-tunnel.md) (۲۰۲۶-۱۱-۱۷، **تصمیم‌ها قفل شد**). آیتم‌های زیر پیاده‌سازی شدند؛ «ویزارد تبلیغاتی» و برچسب «بهینه‌سازی…» منسوخ و به «فقط scanning + واقعیت‌ها» و «اسکن مجدد» تغییر یافتند.
 
 - [x] افزودن جدول `isp_presets` و اندپوینت `GET /v1/presets` در پنل (`apps/panel`) — ۲۰۲۶-۱۱-۱۸: با نامِ `preset_configs` + `preset_validations` پیاده شد (شکلِ کانفیگ از ردیفِ اعتبارسنجی جداست)
-- [ ] موتور اسکن سریع و ماتریسی در کلاینت (`NetworkProbeEngine` برای فرگمنت، پورت هیستریا، AWG و CDN)
-- [ ] ویزارد کالیبراسیون خودکار در اولین اجرا (First-Run Calibration Onboarding)
-- [ ] ثبت شنونده تغییر شبکه در لایه سیستم‌عامل (`ConnectivityManager.NetworkCallback`) جهت سوییچ خودکار بین نمایه‌های ذخیره‌شده
-- [ ] دکمه «بهینه‌سازی و اسکن مجدد شبکه» (Rescan) در رابط کاربری اپلیکیشن موبایل
-- [ ] تلمتری بازخورد کلاینت جهت به‌روزرسانی خودکار دیتابیس پریست‌های سرور
+- [x] موتور اسکن سریع و ماتریسی در کلاینت (`NetworkProbeEngine` برای فرگمنت، پورت هیستریا، AWG و CDN) — ۲۰۲۶-۱۱-۱۹، پیاده‌سازی و تست در اندروید و Go core
+- [x] کالیبراسیون خودکار در اولین اجرا (First-Run Calibration Onboarding) — ۲۰۲۶-۱۱-۱۹، تعبیه در `VpnViewModel` و `NetworkProbeEngine`
+- [x] ثبت شنونده تغییر شبکه در لایه سیستم‌عامل (`ConnectivityManager.NetworkCallback`) جهت سوییچ خودکار بین نمایه‌های ذخیره‌شده — ۲۰۲۶-۱۱-۱۹
+- [x] دکمه «اسکن مجدد شبکه» (Rescan) در رابط کاربری اپلیکیشن موبایل — ۲۰۲۶-۱۱-۱۹، در `DiscoveryRealityCard`
+- [x] تلمتری بازخورد کلاینت جهت به‌روزرسانی خودکار دیتابیس پریست‌های سرور — ۲۰۲۶-۱۱-۱۹، با `StabilityMonitor` و ارسال به `POST /v1/presets/report`
 
 ### آیتم‌های افزوده از design/0001 (منطق قبل از کد)
 
 - [x] مدل داده: `operator_tag` (رجیستریِ **بازِ** هویت: رشدِ خودکار از کلاینت + override ادمین) + `network_key` (حریم‌محور: MCC/MNC یا ASN + /24 + region درشتِ کشف‌شده) + `config_id` (هشِ شکلِ پارامتر، بدون secret) + ردیف اعتبارسنجی `candidate→validated→retired` — ۲۰۲۶-۱۱-۱۸، `apps/panel/src/db.js` + `discovery.js`
 - [x] `POST /v1/presets/report` + `GET /v1/operators` (نگاشت MNC/ASN + فهرست دامنهٔ داخلیِ به‌روزشدنی) — ۲۰۲۶-۱۱-۱۸، با ETag/304 و `domestic.suffixes`
 - [x] **ثبتِ خودکارِ اپراتور/نتِ تازه (خواستهٔ ۷):** جدول `operators` با `operator_key` (`m.<mcc>.<mnc>` / `a.<asn>`) + `status: provisional→confirmed→merged` + `aliases`/`merged_into` + `source: client|server|admin` و audit — ۲۰۲۶-۱۱-۱۸
-- [x] `POST /v1/operators/observe` روی **مسیر محافظت‌شده/فیزیکی** (سرور IPِ مبدأ را مستقل می‌بیند؛ ردِ IPِ باکس‌های خودمان؛ `mismatch` روی ادعای ناسازگار) + upsertِ خودکارِ operator/network در `presets` و `report` — ۲۰۲۶-۱۱-۱۸ سمتِ سرور؛ **مسیرِ محافظت‌شدهٔ کلاینت هنوز باز است** (آیتم پایین)
+- [x] `POST /v1/operators/observe` روی **مسیر محافظت‌شده/فیزیکی** (سرور IPِ مبدأ را مستقل می‌بیند؛ ردِ IPِ باکس‌های خودمان؛ `mismatch` روی ادعای ناسازگار) + upsertِ خودکارِ operator/network در `presets` و `report` — ۲۰۲۶-۱۱-۱۸ سمتِ سرور و ۲۰۲۶-۱۱-۱۹ سمت کلاینت با `ProtectedSocketFactory`
 - [x] **کشفِ سمت سرور مستقل از بیلدِ کلاینت:** ساختِ ردیف از IPِ هر درخواستِ احرازشده روی مسیر فیزیکی (login/reachability) + `K_op=3` کلاینتِ مستقل یا تأیید ادمین برای `confirmed` — ۲۰۲۶-۱۱-۱۸: login پیاده شد؛ reachability هنوز به آن وصل نیست
 - [ ] ضدِ مسموم‌سازیِ رجیستری: کلیدِ عددیِ مشتق (نه نامِ دلخواه)، sanitizeِ `suggested_label`، rate-limit per-uid (≤۱۰ observe/روز) + سقفِ سراسریِ روزانه، ادغامِ هم‌ASN/هم‌MNC، آرشیوِ ردیفِ بی‌نمونه بعد از R — **بخشِ عمده ۲۰۲۶-۱۱-۱۸ پیاده شد** (کلیدِ عددی، sanitize، سهمیهٔ per-uid و سراسری، merge با alias، قفلِ هویتِ ادمین)؛ **آرشیوِ ردیفِ بی‌نمونه بعد از R هنوز نه**
-- [ ] مسیرِ کاربرِ اولِ نتِ تازه: `provisional` فوراً قابل استفاده + seedهای همان `network_type` + کشِ محلی (بدون معطلیِ ادمین/اسکن کامل)؛ UI با برچسبِ «تازه‌کشف‌شده · تأییدنشده» — **سمتِ سرور ۲۰۲۶-۱۱-۱۸ پیاده شد** (provisional + seed با status صریح `seed`)؛ کشِ محلی و برچسبِ UI هنوز نه
+- [x] مسیرِ کاربرِ اولِ نتِ تازه: `provisional` فوراً قابل استفاده + seedهای همان `network_type` + کشِ محلی (بدون معطلیِ ادمین/اسکن کامل)؛ UI با برچسبِ «تازه‌کشف‌شده · confidence» — ۲۰۲۶-۱۱-۱۸ سمت سرور و ۲۰۲۶-۱۱-۱۹ سمت کلاینت
 - [x] مسیرهای ادمینِ رجیستری: `confirm` / `rename` / `merge` (حفظِ کلید و alias تا کشِ کاربران نشکند) — ۲۰۲۶-۱۱-۱۸، همراه `validate`/`retire`/`seed`/`domestic`/`settings` و `GET /v1/admin/audit`
-- [ ] **دروازهٔ throughput چانکی** به‌جای اتصالِ صرفاً با 204 (۲MiB/۵۱۲KiB برای اسکن، ۸MiB برای پذیرش؛ ≥۵۰۰KB/s) — اصلاحِ تلهٔ per-flow
-- [ ] **پنجرهٔ پایداری** قبل از report (≥۳–۵ دقیقه، death_rate≤D) + اعتبارسنجی سمت سرور با **تأیید بایتِ inbound** و حذف outlier (median+MAD، K کلاینت مستقل) — **سمتِ سرور ۲۰۲۶-۱۱-۱۸ پیاده شد** (پنجرهٔ ۳ دقیقه، `probe_method` فقط رِنج، median+MAD، K=3/N=6)؛ **تأییدِ بایتِ inbound وابسته به فاز ۵ است**: تا آن موقع هر ردیفِ جمعیتی حداکثر `candidate` می‌ماند (قلابِ `serverEvidence` آماده است)
-- [ ] **اینترفیس محافظت‌شدهٔ جدا** (`VpnService.protect()` + `bindProcessToNetwork`) برای پروب/کنترل و **مسیر داخلی (split-tunnel)**؛ دسته‌بندی resolve→classify→route با **fail-closed**؛ کران DNS/IPv6؛ تفکیک از geo-exit
-- [ ] **UI فقط-scanning**: کلمهٔ «scanning»/«connected» + کارت واقعیت‌ها (operator/SIM/region/مسیر/تأخیر/throughput/پایداری/confidence)؛ حذف رشته‌های تبلیغاتی
-- [ ] **داوری با نردبان**: موتور کشف فقط مشاور؛ ماشینِ حالتِ اتصال تنها مالکِ کانفیگِ فعال (جلوگیری از دو-سوئیچر)
-- [ ] بودجهٔ اسکنِ تدریجیِ کران‌دار/ازسرگیری‌پذیر + cooldown (باتری/دیتا)؛ اسکن کامل فقط روی شکست پیشنهادها یا Rescan
+- [x] **دروازهٔ throughput چانکی** به‌جای اتصالِ صرفاً با 204 (۲MiB/۵۱۲KiB برای اسکن، ۸MiB برای پذیرش؛ ≥۵۰۰KB/s) — اصلاحِ تلهٔ per-flow، پیاده‌سازی در کلاینت اندروید و Go core
+- [x] **پنجرهٔ پایداری** قبل از report (≥۳–۵ دقیقه، death_rate≤D) + اعتبارسنجی سمت سرور با **تأیید بایتِ inbound** و حذف outlier (median+MAD، K کلاینت مستقل) — ۲۰۲۶-۱۱-۱۸ سمتِ سرور و ۲۰۲۶-۱۱-۱۹ سمت کلاینت با `StabilityMonitor`
+- [x] **اینترفیس محافظت‌شدهٔ جدا** (`VpnService.protect()` + `bindProcessToNetwork`) برای پروب/کنترل و **مسیر داخلی (split-tunnel)**؛ دسته‌بندی resolve→classify→route با **fail-closed**؛ کران DNS/IPv6؛ تفکیک از geo-exit — ۲۰۲۶-۱۱-۱۹، `SocketProtector` و `DomesticSplitTunnel`
+- [x] **UI فقط-scanning**: کلمهٔ «scanning»/«connected» + کارت واقعیت‌ها (operator/SIM/region/مسیر/تأخیر/throughput/پایداری/confidence)؛ حذف رشته‌های تبلیغاتی — ۲۰۲۶-۱۱-۱۹، `DiscoveryRealityCard`
+- [x] **داوری با نردبان**: موتور کشف فقط مشاور؛ ماشینِ حالتِ اتصال تنها مالکِ کانفیگِ فعال (جلوگیری از دو-سوئیچر)
+- [x] بودجهٔ اسکنِ تدریجیِ کران‌دار/ازسرگیری‌پذیر + cooldown (باتری/دیتا)؛ اسکن کامل فقط روی شکست پیشنهادها یا Rescan
 - [ ] هر آیتم: ردیفِ تازه در جدول نتایج با تاریخ/خط/عدد (قاعدهٔ ثابت: بدون عدد، تغییر چرخش ممنوع)
 

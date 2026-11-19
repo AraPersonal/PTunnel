@@ -81,6 +81,7 @@ import com.example.model.LocationMode
 import com.example.model.VpnConnectionState
 import com.example.ui.components.AirDropConnectionWaveOverlay
 import com.example.ui.components.ConnectionDetailsSheet
+import com.example.ui.components.DiscoveryRealityCard
 import com.example.ui.components.LiquidGlassBox
 import com.example.ui.components.LiquidSlider
 import com.example.ui.components.LiveTrafficPanel
@@ -400,6 +401,24 @@ private fun MainVpnDashboard(
                         choreography = airDropChoreography,
                         distanceFactor = 0.18f,
                         stretchIntensity = 0.6f
+                    )
+                    .airDropContentBlur(
+                        choreography = airDropChoreography,
+                        blurScale = 1f
+                    )
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Discovery Reality Card (Operator, SIM, Path, Ping, "scanning" state, Rescan button)
+            DiscoveryRealityCard(
+                state = uiState.discoveryReality,
+                onRescan = { vpnViewModel.rescanNetwork() },
+                modifier = Modifier
+                    .airDropElementWarp(
+                        choreography = airDropChoreography,
+                        distanceFactor = 0.22f,
+                        stretchIntensity = 0.65f
                     )
                     .airDropContentBlur(
                         choreography = airDropChoreography,

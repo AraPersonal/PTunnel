@@ -19,6 +19,8 @@ import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.model.VpnConnectionState
 import com.example.network.PathLadder
+import com.example.network.discovery.SocketProtector
+import com.example.network.discovery.DomesticSplitTunnel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -137,6 +139,7 @@ class ShieldVpnService : VpnService() {
 
     override fun onCreate() {
         super.onCreate()
+        SocketProtector.register(this)
         try {
             // libv2ray is gone (ADR-0005). NoopTunnelCore keeps the ladder, probes and verification logic
             // exactly as they are and stays honest: it reports not-running, so attempts advance instead of
@@ -161,6 +164,7 @@ class ShieldVpnService : VpnService() {
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 Log.i(TAG, "Default network available again; resuming health probes")
+                SocketProtector.activePhysicalNetwork = network
                 linkReportedDown = false
                 onDefaultNetworkChanged()
             }
@@ -169,6 +173,9 @@ class ShieldVpnService : VpnService() {
                 // An antenna that just went away: stop probing through the tunnel until it returns,
                 // so an outage costs no data at all.
                 Log.w(TAG, "Default network lost; pausing health probes until it returns")
+                if (SocketProtector.activePhysicalNetwork == network) {
+                    SocketProtector.activePhysicalNetwork = null
+                }
                 linkReportedDown = true
             }
         }
@@ -295,7 +302,8 @@ class ShieldVpnService : VpnService() {
         explicitStop = false
         stopRequested = false
         tunnelVerified = false
-        activeConfig = config
+        val finalConfig = DomesticSplitTunnel.injectDomesticRouting(config)
+        activeConfig = finalConfig
         connectionStartedAt = System.currentTimeMillis()
         // Fresh connections are the fragile ones, so they are watched closely at first and only
         // relaxed once the session has proven itself.
@@ -332,7 +340,7 @@ class ShieldVpnService : VpnService() {
             try {
                 val controller = coreController
                 if (controller == null) throw IllegalStateException("VPN engine is not initialized")
-                controller.startLoop(config, tun.fd)
+                controller.startLoop(finalConfig, tun.fd)
                 Log.i(TAG, "startLoop returned; core running=${controller.isRunning}")
                 if (controller.isRunning) {
                     VpnDebugLogger.log(
@@ -1134,6 +1142,7 @@ class ShieldVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        SocketProtector.unregister(this)
         stopRequested = true
         recoveryJob?.cancel()
         recoveryJob = null
