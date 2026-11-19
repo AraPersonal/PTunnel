@@ -1,0 +1,18 @@
+[Interface]
+Address = {{ awg_server_ip | default('10.7.0.1/24') }}
+ListenPort = {{ awg_port | default(51820) }}
+PrivateKey = {{ vault_awg_server_private_key }}
+
+# AmneziaWG Obfuscation Headers & Junk Parameters
+Jc = {{ awg_jc | default(4) }}
+Jmin = {{ awg_jmin | default(40) }}
+Jmax = {{ awg_jmax | default(70) }}
+S1 = {{ awg_s1 | default(65) }}
+S2 = {{ awg_s2 | default(92) }}
+H1 = {{ awg_h1 | default(1204859231) }}
+H2 = {{ awg_h2 | default(839201948) }}
+H3 = {{ awg_h3 | default(1928472910) }}
+H4 = {{ awg_h4 | default(492018471) }}
+
+PostUp = iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE; iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT
+PostDown = iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE; iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT

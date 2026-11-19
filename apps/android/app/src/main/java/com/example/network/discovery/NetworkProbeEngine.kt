@@ -121,7 +121,8 @@ class NetworkProbeEngine(
                 Log.i(TAG, "Using locally cached validated candidate for ${activeIdentity.networkKey}")
                 onProgress?.invoke("scanning", "Found local profile for ${activeIdentity.networkKey}")
                 val probeUrl = "${baseConfig.apiBaseUrl}dl"
-                val check = measureChunkedThroughput(probeUrl, CHUNK_SIZE_BYTES, 2)
+                // Fast-lane verification: 1 chunk (512KB) for cached profiles to minimize TTFB
+                val check = measureChunkedThroughput(probeUrl, CHUNK_SIZE_BYTES, 1)
                 if (check.verdict == "ok") {
                     return@withContext Result.success(
                         DiscoveryResult(

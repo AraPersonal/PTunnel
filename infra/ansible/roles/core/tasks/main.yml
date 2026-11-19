@@ -8,6 +8,7 @@
   loop:
     - "{{ ptunnel_root }}"
     - "{{ ptunnel_root }}/config"
+    - "{{ ptunnel_root }}/config/awg"
     - "{{ ptunnel_root }}/backups"
 
 - name: persistent data directory for panel sqlite db
@@ -75,3 +76,22 @@
     mode: "0640"
     backup: true
   notify: restart hysteria
+
+- name: amneziawg config
+  ansible.builtin.template:
+    src: awg.conf.j2
+    dest: "{{ ptunnel_root }}/config/awg/wg0.conf"
+    mode: "0640"
+    backup: true
+  when: vault_awg_server_private_key is defined
+  notify: restart awg
+
+- name: hysteria2 udp port hopping iptables redirect
+  ansible.builtin.iptables:
+    table: nat
+    chain: PREROUTING
+    protocol: udp
+    destination_port: "20000:50000"
+    jump: REDIRECT
+    to_ports: "{{ hy2_port | default(443) }}"
+  when: ansible_os_family == "Debian"

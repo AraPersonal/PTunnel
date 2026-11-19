@@ -365,10 +365,24 @@ export function createDiscovery({ db, config, ipIntel, now = () => new Date(), s
     return { status, ...stats, confidence, server_corroborated: corroborated };
   }
 
-  // Freshness decay: a validated row nobody re-measured within R days drops back to candidate.
+  // Freshness decay & housekeeping routine (design 0001 §2.1 rule 6):
+  // 1. Freshness decay: a validated row nobody re-measured within R days drops back to candidate.
+  // 2. Archive unobserved provisional operator rows after R days (source != 'admin').
+  function applyHousekeeping() {
+    const threshold = cutoff(settings().R_days);
+    const decayed = db.prepare("UPDATE preset_validations SET status = 'candidate' WHERE status = 'validated' AND source = 'crowd' AND last_seen < ?")
+      .run(threshold);
+    const archived = db.prepare("UPDATE operators SET status = 'archived' WHERE status = 'provisional' AND source != 'admin' AND last_seen < ?")
+      .run(threshold);
+    return {
+      decayed_validations: decayed.changes,
+      archived_operators: archived.changes,
+      cutoff: threshold,
+    };
+  }
+
   function applyDecay() {
-    db.prepare("UPDATE preset_validations SET status = 'candidate' WHERE status = 'validated' AND source = 'crowd' AND last_seen < ?")
-      .run(cutoff(settings().R_days));
+    return applyHousekeeping();
   }
 
   function report({ uid, body }) {
@@ -438,7 +452,7 @@ export function createDiscovery({ db, config, ipIntel, now = () => new Date(), s
   }
 
   function presets({ uid, query, ip }) {
-    applyDecay();
+    applyHousekeeping();
     const server = serverView(ip);
     const evidence = cleanEvidence({ mcc: query.mcc, mnc: query.mnc, asn: query.asn ?? server?.asn });
     let operatorKey = sanitizeLabel(query.operator_key).toLowerCase();
@@ -516,8 +530,8 @@ export function createDiscovery({ db, config, ipIntel, now = () => new Date(), s
   }
 
   function operators() {
-    applyDecay();
-    const rows = db.prepare("SELECT * FROM operators WHERE status != 'merged' ORDER BY last_seen DESC LIMIT 500").all();
+    applyHousekeeping();
+    const rows = db.prepare("SELECT * FROM operators WHERE status NOT IN ('merged', 'archived') ORDER BY last_seen DESC LIMIT 500").all();
     const suffixes = ['.ir', ...db.prepare("SELECT value FROM domestic_rules WHERE kind = 'suffix' ORDER BY value").all().map((r) => r.value)];
     return {
       operators: rows.map(rowToOperator),
@@ -663,7 +677,11 @@ export function createDiscovery({ db, config, ipIntel, now = () => new Date(), s
   return {
     settings, setSettings, audit, observe, noteServerLine, report, presets, operators,
     adminOperator, confirmOperator, renameOperator, mergeOperators, adminValidation, addDomestic,
-    seedDoors, seedOperators, upsertConfig, resolveKey, applyDecay,
+    seedDoors, seedOperators, upsertConfig, resolveKey, applyDecay, applyHousekeeping,
+    allPresets: () => ({
+      configs: db.prepare('SELECT * FROM preset_configs ORDER BY created_at DESC LIMIT 100').all(),
+      validations: db.prepare('SELECT * FROM preset_validations ORDER BY last_seen DESC LIMIT 200').all(),
+    }),
     auditLog: (limit = 50) => db.prepare('SELECT * FROM admin_audit ORDER BY id DESC LIMIT ?').all(Math.trunc(limit)),
   };
 }
@@ -759,5 +777,15 @@ export function registerDiscoveryRoutes(app, { discovery, auth, adminAuth }) {
 
   app.get('/v1/admin/audit', adminAuth, (req, res) => {
     res.json({ audit: discovery.auditLog(Number(req.query.limit) || 50) });
+  });
+
+  app.get('/v1/admin/presets/all', adminAuth, (_req, res) => {
+    res.json(discovery.allPresets());
+  });
+
+  app.post('/v1/admin/housekeeping', adminAuth, (req, res) => {
+    const result = discovery.applyHousekeeping();
+    discovery.audit(req.user.username, 'housekeeping_run', 'all', result);
+    res.json({ ok: true, ...result });
   });
 }

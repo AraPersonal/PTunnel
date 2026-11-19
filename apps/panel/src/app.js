@@ -1,11 +1,17 @@
 import express from 'express';
 import net from 'node:net';
 import crypto from 'node:crypto';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { initDb, verifyPassword, hashPassword } from './db.js';
 import { signJwt, authMiddleware } from './auth.js';
 import { buildClientConfig } from './profile.js';
 import { createIpIntel, loadPrefixTable } from './ipIntel.js';
 import { createDiscovery, registerDiscoveryRoutes } from './discovery.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const publicDir = path.join(__dirname, '../public');
 
 const startedAt = Date.now();
 
@@ -80,6 +86,10 @@ export function createApp(config, deps = {}) {
   // The panel is behind the host's reverse proxy; req.ip must be the user's line, not the proxy.
   app.set('trust proxy', config.trustProxy);
   app.use(express.json({ limit: '64kb' }));
+  app.use(express.static(publicDir));
+  app.get('/admin', (_req, res) => {
+    res.sendFile(path.join(publicDir, 'admin/index.html'));
+  });
 
   const ipIntel = deps.ipIntel ?? createIpIntel({
     ownIps: config.ownBoxIps,
@@ -147,16 +157,27 @@ export function createApp(config, deps = {}) {
       }
     };
 
-    const [g204, gemini, alkali] = await Promise.all([
+    const [g204, gemini, alkali, aistudio, chatgpt] = await Promise.all([
       checkUrl('https://www.google.com/generate_204'),
       checkUrl('https://gemini.google.com/app'),
       checkUrl('https://alkalimakersuite-pa.googleapis.com/'),
+      checkUrl('https://aistudio.google.com/'),
+      checkUrl('https://chatgpt.com/'),
     ]);
+
+    // Google services return 403 Forbidden or block when dialed from sanctioned regions.
+    // Two-hop / clean exit passes with 200/302/404.
+    const sanctionsBypassed = alkali !== 403 && alkali > 0 && gemini !== 403 && gemini > 0;
+    const verdict = (g204 === 204 && sanctionsBypassed) ? 'clean' : (alkali === 403 ? 'sanctioned' : 'degraded');
 
     res.json({
       google_204: g204 === 204,
       gemini_status: gemini,
       alkali_status: alkali,
+      aistudio_status: aistudio,
+      chatgpt_status: chatgpt,
+      sanctions_bypassed: sanctionsBypassed,
+      verdict,
       timestamp: new Date().toISOString(),
     });
   });
@@ -280,6 +301,33 @@ export function createApp(config, deps = {}) {
       return res.status(403).json({ error: 'forbidden', message: 'Admin role required' });
     }
     next();
+  });
+
+  // --- Admin User Management & Web API ---
+  app.get('/v1/admin/users', adminAuth, (_req, res) => {
+    const users = db.prepare(`
+      SELECT uid, username, display_name, plan_title, role, channel, used_bytes, total_bytes, is_enabled, created_at, updated_at, last_seen_at, expires_at
+      FROM users ORDER BY updated_at DESC LIMIT 200
+    `).all();
+    res.json({ users });
+  });
+
+  app.post('/v1/admin/users/channel', adminAuth, (req, res) => {
+    const uid = String(req.body?.uid || '').trim();
+    const channel = String(req.body?.channel || '').trim().toLowerCase();
+    if (!uid || (channel !== 'prod' && channel !== 'beta')) {
+      return res.status(400).json({ error: 'invalid_request', message: 'uid and valid channel (prod|beta) required' });
+    }
+    const result = db.prepare('UPDATE users SET channel = ?, updated_at = ? WHERE uid = ?').run(
+      channel,
+      new Date().toISOString(),
+      uid
+    );
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'not_found', message: 'User not found' });
+    }
+    discovery.audit(req.user.username, 'user_channel_update', uid, { channel });
+    res.json({ ok: true, uid, channel });
   });
 
   const handleProfile = (req, res) => {

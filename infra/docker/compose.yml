@@ -53,6 +53,27 @@ services:
       ptunnel.env: ${PT_ENV:-stage}
       ptunnel.role: core-hysteria
 
+  # AmneziaWG is the low-latency obfuscated UDP tunnel with customized packet headers (H1-H4) and junk packets (Jc).
+  awg:
+    image: ${AWG_IMAGE:-ghcr.io/arapersonal/ptunnel/awg:${GIT_SHA:-latest}}
+    container_name: ptunnel-awg-${PT_ENV:-stage}
+    network_mode: host
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    volumes:
+      - ./config/awg:/etc/amnezia/amneziawg:ro
+      - /lib/modules:/lib/modules:ro
+    environment:
+      AWG_CONFIG: /etc/amnezia/amneziawg/wg0.conf
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    labels:
+      ptunnel.env: ${PT_ENV:-stage}
+      ptunnel.role: core-awg
+
   panel:
     image: ${PANEL_IMAGE:?set PANEL_IMAGE}
     container_name: ptunnel-panel-${PT_ENV:-stage}

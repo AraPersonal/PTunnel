@@ -12,10 +12,16 @@ export PT_ENV="$ENV_NAME"
 export PANEL_IMAGE="ghcr.io/${REPO_LC}/panel:${TAG}"
 export XRAY_IMAGE="ghcr.io/${REPO_LC}/xray:${TAG}"
 export HYSTERIA_IMAGE="ghcr.io/${REPO_LC}/hysteria:${TAG}"
+export AWG_IMAGE="ghcr.io/${REPO_LC}/awg:${TAG}"
 export GIT_SHA="$TAG"
 export BUILD_VERSION="$TAG"
 export PANEL_PORT="{{ panel_port }}"
 export XRAY_API_PORT="{{ xray_api_port }}"
+
+# Configure Hysteria 2 UDP port hopping (20000-50000 -> {{ hy2_port | default(443) }})
+iptables -t nat -C PREROUTING -p udp --dport 20000:50000 -j REDIRECT --to-ports {{ hy2_port | default(443) }} 2>/dev/null || \
+iptables -t nat -A PREROUTING -p udp --dport 20000:50000 -j REDIRECT --to-ports {{ hy2_port | default(443) }}
+
 docker compose -f compose.yml config --quiet
 docker compose -f compose.yml pull --quiet
 docker compose -f compose.yml up -d --remove-orphans

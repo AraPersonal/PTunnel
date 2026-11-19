@@ -527,7 +527,7 @@ class ShieldVpnService : VpnService() {
                     }
                 }
                 try {
-                    Thread.sleep(500L)
+                    Thread.sleep(150L)
                 } catch (_: InterruptedException) {
                     break
                 }
@@ -1179,8 +1179,8 @@ class ShieldVpnService : VpnService() {
         private const val PREF_CONFIG = "last_config"
         private const val GENERATE_204_URL = "https://www.gstatic.com/generate_204"
 
-        /** The connection ceremony plays for this long before the UI may call it CONNECTED. */
-        private const val CEREMONY_MIN_MS = 600L
+        /** Zero artificial pause: the connection marks CONNECTED immediately when verified (sub-second TTFB). */
+        private const val CEREMONY_MIN_MS = 0L
 
         private const val CONNECT_TIMEOUT_MS = 20_000L
 

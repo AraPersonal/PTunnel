@@ -73,12 +73,43 @@
   ],
   "outbounds": [
     { "tag": "direct", "protocol": "freedom" },
+{% if xray_hop_server is defined and xray_hop_server %}
+    {
+      "tag": "hop",
+      "protocol": "{{ xray_hop_protocol | default('socks') }}",
+      "settings": {
+        "servers": [
+          {
+            "address": "{{ xray_hop_server }}",
+            "port": {{ xray_hop_port | default(1080) }}
+{% if vault_xray_hop_user is defined and vault_xray_hop_user %}
+            ,
+            "users": [
+              {
+                "user": "{{ vault_xray_hop_user }}",
+                "pass": "{{ vault_xray_hop_pass }}"
+              }
+            ]
+{% endif %}
+          }
+        ]
+      }
+    },
+{% endif %}
     { "tag": "block", "protocol": "blackhole" }
   ],
   "routing": {
-    "domainStrategy": "AsIs",
+    "domainStrategy": "IPIfNonMatch",
     "rules": [
-      { "type": "field", "inboundTag": ["api"], "outboundTag": "api" }
+      { "type": "field", "inboundTag": ["api"], "outboundTag": "api" },
+{% if xray_hop_server is defined and xray_hop_server %}
+      {
+        "type": "field",
+        "domain": {{ xray_sniff_domains | to_json }},
+        "outboundTag": "hop"
+      },
+{% endif %}
+      { "type": "field", "outboundTag": "direct" }
     ]
   }
 }

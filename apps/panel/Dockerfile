@@ -12,6 +12,7 @@ RUN mkdir -p /app/data && chown -R ptunnel:ptunnel /app/data
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY src ./src
+COPY public ./public
 VOLUME ["/app/data"]
 USER ptunnel
 EXPOSE 8080

@@ -5,3 +5,6 @@
 - name: restart hysteria
   ansible.builtin.command: "docker restart ptunnel-hysteria-{{ pt_env }}"
   changed_when: true
+- name: restart awg
+  ansible.builtin.command: "docker restart ptunnel-awg-{{ pt_env }}"
+  changed_when: true

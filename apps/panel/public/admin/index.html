@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PTunnel Admin Console</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --surface: #151d30;
+      --surface-border: #233152;
+      --surface-hover: #1e2a47;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-family);
+      line-height: 1.5;
+      font-size: 14px;
+      padding: 0;
+      min-height: 100vh;
+    }
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--surface-border);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo-group { display: flex; align-items: center; gap: 12px; }
+    .logo-badge {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      color: white;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+    }
+    .logo-title { font-size: 18px; font-weight: 600; color: #fff; }
+    .nav-actions { display: flex; align-items: center; gap: 12px; }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-outline { background: transparent; border-color: var(--surface-border); color: var(--text); }
+    .btn-outline:hover { background: var(--surface-hover); border-color: var(--text-muted); }
+    .btn-danger { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5; }
+    .btn-danger:hover { background: rgba(239, 68, 68, 0.25); }
+    .btn-success { background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: #6ee7b7; }
+    .btn-sm { padding: 4px 8px; font-size: 12px; }
+    
+    .tabs-nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--surface-border);
+      padding: 0 24px;
+      display: flex;
+      gap: 20px;
+    }
+    .tab-btn {
+      padding: 14px 4px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    .tab-btn.active {
+      color: #60a5fa;
+      border-bottom-color: #3b82f6;
+    }
+    
+    .container { max-width: 1280px; margin: 0 auto; padding: 24px; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .stat-label { color: var(--text-muted); font-size: 12px; text-transform: uppercase; font-weight: 600; margin-bottom: 8px; }
+    .stat-val { font-size: 26px; font-weight: 700; color: #fff; }
+    .stat-sub { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 8px;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--surface-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card-title { font-size: 16px; font-weight: 600; }
+    
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th {
+      background: #0f172a;
+      padding: 12px 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      border-bottom: 1px solid var(--surface-border);
+    }
+    td { padding: 12px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+    
+    .badge {
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      display: inline-block;
+    }
+    .badge-prod { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-beta { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-confirmed { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-provisional { background: rgba(245, 158, 11, 0.2); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-validated { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-retired { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-candidate { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
+    .badge-archived { background: rgba(100, 116, 139, 0.2); color: #94a3b8; }
+
+    .meter {
+      width: 120px;
+      height: 6px;
+      background: #1e293b;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .meter-fill { height: 100%; background: #3b82f6; border-radius: 3px; }
+    
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    
+    /* Login Modal */
+    .login-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 15, 25, 0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .login-box {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 12px;
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; margin-bottom: 6px; color: var(--text-muted); font-size: 13px; }
+    .form-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: #0b0f19;
+      border: 1px solid var(--surface-border);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 14px;
+    }
+    .form-input:focus { outline: none; border-color: var(--primary); }
+    .banner {
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .banner-success { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #6ee7b7; }
+    .banner-error { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="header">
+    <div class="logo-group">
+      <div class="logo-badge">PTUNNEL</div>
+      <div class="logo-title">Core Admin Console</div>
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-outline btn-sm" id="btnRunHousekeeping">Run Housekeeping (Archive R=14d)</button>
+      <button class="btn btn-outline btn-sm" id="btnRefresh">Refresh Data</button>
+      <button class="btn btn-danger btn-sm" id="btnLogout">Sign Out</button>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="tabs-nav">
+    <button class="tab-btn active" data-tab="tabUsers">Live Users & Traffic</button>
+    <button class="tab-btn" data-tab="tabOperators">Operator Registry</button>
+    <button class="tab-btn" data-tab="tabPresets">Presets & Validations</button>
+    <button class="tab-btn" data-tab="tabAudit">Audit Log & Housekeeping</button>
+  </nav>
+
+  <main class="container">
+    <div id="alertBanner" style="display:none;" class="banner"></div>
+
+    <!-- TAB 1: USERS & TRAFFIC -->
+    <div id="tabUsers" class="tab-content active">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Users</div>
+          <div class="stat-val" id="statTotalUsers">0</div>
+          <div class="stat-sub" id="statActiveUsers">0 active accounts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Traffic Consumed</div>
+          <div class="stat-val" id="statTotalBytes">0 MB</div>
+          <div class="stat-sub">Across all registered devices</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Release Channels</div>
+          <div class="stat-val" id="statChannels">0 Prod / 0 Beta</div>
+          <div class="stat-sub">Dynamic transport profiles</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Live Users & Quota Management</div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>User / Display</th>
+                <th>Role</th>
+                <th>Channel</th>
+                <th>Traffic Consumed</th>
+                <th>Status</th>
+                <th>Last Seen</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Loading users...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: OPERATOR REGISTRY -->
+    <div id="tabOperators" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Open Operator Registry (/v1/operators)</div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Operator Key</th>
+                <th>Tag</th>
+                <th>Display Name</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Source</th>
+                <th>Last Seen</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="operatorsTableBody">
+              <tr><td colspan="8" style="text-align:center; color:var(--text-muted);">Loading operators...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: PRESETS & VALIDATIONS -->
+    <div id="tabPresets" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Crowdsourced Presets & Validations</div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Network Key</th>
+                <th>Config ID</th>
+                <th>Status</th>
+                <th>Throughput (p50)</th>
+                <th>Latency (p50)</th>
+                <th>Clients</th>
+                <th>Corroborated</th>
+                <th>Last Seen</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="presetsTableBody">
+              <tr><td colspan="9" style="text-align:center; color:var(--text-muted);">Loading presets...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: AUDIT LOG -->
+    <div id="tabAudit" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Administrative Audit Log</div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Actor</th>
+                <th>Action</th>
+                <th>Target</th>
+                <th>Detail</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="auditTableBody">
+              <tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Loading audit log...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Login Modal -->
+  <div id="loginModal" class="login-overlay" style="display:none;">
+    <div class="login-box">
+      <h2 style="margin-bottom:8px; font-size:20px;">PTunnel Admin Login</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Authenticate with admin credentials to access core controls.</p>
+      <div id="loginError" style="display:none;" class="banner banner-error"></div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label" for="loginUsername">Username / Email</label>
+          <input type="text" id="loginUsername" class="form-input" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" class="form-input" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">Sign In</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let authToken = localStorage.getItem('ptunnel_admin_token') || '';
+
+    function showBanner(msg, type = 'success') {
+      const b = document.getElementById('alertBanner');
+      b.className = `banner banner-${type}`;
+      b.textContent = msg;
+      b.style.display = 'block';
+      setTimeout(() => { b.style.display = 'none'; }, 4000);
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes || bytes <= 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+    }
+
+    async function api(path, options = {}) {
+      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      const res = await fetch(path, { ...options, headers });
+      if (res.status === 401 || res.status === 403) {
+        if (path !== '/v1/auth/login') {
+          showLogin();
+          throw new Error('Authentication required');
+        }
+      }
+      return res;
+    }
+
+    function showLogin() {
+      document.getElementById('loginModal').style.display = 'flex';
+    }
+
+    function hideLogin() {
+      document.getElementById('loginModal').style.display = 'none';
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('loginError');
+      errBox.style.display = 'none';
+      const u = document.getElementById('loginUsername').value.trim();
+      const p = document.getElementById('loginPassword').value;
+      try {
+        const res = await fetch('/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: u, password: p })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.token) {
+          errBox.textContent = data.message || 'Login failed';
+          errBox.style.display = 'block';
+          return;
+        }
+        authToken = data.token;
+        localStorage.setItem('ptunnel_admin_token', authToken);
+        hideLogin();
+        loadAll();
+      } catch (err) {
+        errBox.textContent = err.message || 'Network error';
+        errBox.style.display = 'block';
+      }
+    });
+
+    document.getElementById('btnLogout').addEventListener('click', () => {
+      authToken = '';
+      localStorage.removeItem('ptunnel_admin_token');
+      showLogin();
+    });
+
+    document.getElementById('btnRefresh').addEventListener('click', () => loadAll());
+
+    document.getElementById('btnRunHousekeeping').addEventListener('click', async () => {
+      if (!confirm('Run housekeeping now? This will decay unobserved validations and archive unobserved provisional operator rows older than R=14 days.')) return;
+      try {
+        const res = await api('/v1/admin/housekeeping', { method: 'POST', body: '{}' });
+        const data = await res.json();
+        if (res.ok) {
+          showBanner(`Housekeeping executed: ${data.archived_operators || 0} operators archived, ${data.decayed_validations || 0} validations decayed.`);
+          loadAll();
+        } else {
+          showBanner(data.message || 'Housekeeping failed', 'error');
+        }
+      } catch (err) {
+        showBanner(err.message, 'error');
+      }
+    });
+
+    // Tab Switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    async function loadUsers() {
+      const res = await api('/v1/admin/users');
+      if (!res.ok) return;
+      const data = await res.json();
+      const users = data.users || [];
+      
+      let totalBytes = 0;
+      let activeCount = 0;
+      let prodCount = 0;
+      let betaCount = 0;
+
+      const tbody = document.getElementById('usersTableBody');
+      tbody.innerHTML = '';
+
+      users.forEach(u => {
+        totalBytes += (u.used_bytes || 0);
+        if (u.is_enabled) activeCount++;
+        if (u.channel === 'beta') betaCount++; else prodCount++;
+
+        const percent = Math.min(100, Math.round(((u.used_bytes || 0) / (u.total_bytes || 1)) * 100));
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <div style="font-weight:600;">${u.username}</div>
+            <div style="font-size:12px; color:var(--text-muted);">${u.display_name || ''}</div>
+          </td>
+          <td><span class="badge ${u.role === 'admin' ? 'badge-confirmed' : 'badge-candidate'}">${u.role}</span></td>
+          <td>
+            <span class="badge badge-${u.channel}">${u.channel}</span>
+            <button class="btn btn-outline btn-sm" style="margin-left:6px;" onclick="toggleChannel('${u.uid}', '${u.channel === 'prod' ? 'beta' : 'prod'}')">
+              Switch to ${u.channel === 'prod' ? 'beta' : 'prod'}
+            </button>
+          </td>
+          <td>
+            <div>${formatBytes(u.used_bytes)} / ${formatBytes(u.total_bytes)}</div>
+            <div class="meter"><div class="meter-fill" style="width:${percent}%;"></div></div>
+          </td>
+          <td><span class="badge ${u.is_enabled ? 'badge-validated' : 'badge-retired'}">${u.is_enabled ? 'Active' : 'Suspended'}</span></td>
+          <td style="font-size:12px; color:var(--text-muted);">${u.last_seen_at ? new Date(u.last_seen_at).toLocaleString() : 'Never'}</td>
+          <td>
+            <span style="font-size:12px; color:var(--text-muted);">${u.plan_title || ''}</span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('statTotalUsers').textContent = users.length;
+      document.getElementById('statActiveUsers').textContent = `${activeCount} active accounts`;
+      document.getElementById('statTotalBytes').textContent = formatBytes(totalBytes);
+      document.getElementById('statChannels').textContent = `${prodCount} Prod / ${betaCount} Beta`;
+    }
+
+    async function toggleChannel(uid, newChannel) {
+      try {
+        const res = await api('/v1/admin/users/channel', {
+          method: 'POST',
+          body: JSON.stringify({ uid, channel: newChannel })
+        });
+        if (res.ok) {
+          showBanner(`User channel changed to ${newChannel}`);
+          loadUsers();
+        } else {
+          const d = await res.json();
+          showBanner(d.message || 'Failed to update channel', 'error');
+        }
+      } catch (err) {
+        showBanner(err.message, 'error');
+      }
+    }
+
+    async function loadOperators() {
+      const res = await api('/v1/operators');
+      if (!res.ok) return;
+      const data = await res.json();
+      const ops = data.operators || [];
+      const tbody = document.getElementById('operatorsTableBody');
+      tbody.innerHTML = '';
+
+      ops.forEach(op => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><code>${op.operator_key}</code></td>
+          <td>${op.operator_tag}</td>
+          <td style="font-weight:500;">${op.display_name || '—'}</td>
+          <td>${op.network_type}</td>
+          <td><span class="badge badge-${op.status}">${op.status}</span></td>
+          <td style="font-size:12px; color:var(--text-muted);">${op.source}</td>
+          <td style="font-size:12px; color:var(--text-muted);">${op.last_seen ? new Date(op.last_seen).toLocaleString() : '—'}</td>
+          <td>
+            ${op.status === 'provisional' ? `<button class="btn btn-success btn-sm" onclick="confirmOperator('${op.operator_key}')">Confirm</button>` : ''}
+            <button class="btn btn-outline btn-sm" onclick="renameOperator('${op.operator_key}', '${op.display_name}')">Rename</button>
+            <button class="btn btn-outline btn-sm" onclick="mergeOperator('${op.operator_key}')">Merge</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function confirmOperator(key) {
+      if (!confirm(`Confirm operator ${key}?`)) return;
+      try {
+        const res = await api('/v1/admin/operators/confirm', {
+          method: 'POST',
+          body: JSON.stringify({ operator_key: key })
+        });
+        if (res.ok) {
+          showBanner(`Operator ${key} confirmed.`);
+          loadOperators();
+        }
+      } catch (err) { showBanner(err.message, 'error'); }
+    }
+
+    async function renameOperator(key, current) {
+      const name = prompt(`Enter new display name for operator ${key}:`, current);
+      if (name === null) return;
+      try {
+        const res = await api('/v1/admin/operators/rename', {
+          method: 'POST',
+          body: JSON.stringify({ operator_key: key, display_name: name })
+        });
+        if (res.ok) {
+          showBanner(`Operator renamed to ${name}`);
+          loadOperators();
+        }
+      } catch (err) { showBanner(err.message, 'error'); }
+    }
+
+    async function mergeOperator(key) {
+      const into = prompt(`Merge operator ${key} into target key (e.g. m.432.11):`);
+      if (!into) return;
+      try {
+        const res = await api('/v1/admin/operators/merge', {
+          method: 'POST',
+          body: JSON.stringify({ from_key: key, into_key: into })
+        });
+        if (res.ok) {
+          showBanner(`Merged ${key} into ${into}`);
+          loadOperators();
+        }
+      } catch (err) { showBanner(err.message, 'error'); }
+    }
+
+    async function loadPresets() {
+      const res = await api('/v1/admin/presets/all');
+      if (!res.ok) return;
+      const data = await res.json();
+      const validations = data.validations || [];
+      const tbody = document.getElementById('presetsTableBody');
+      tbody.innerHTML = '';
+
+      validations.forEach(v => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><code>${v.network_key}</code></td>
+          <td><code>${v.config_id.slice(0, 10)}...</code></td>
+          <td><span class="badge badge-${v.status}">${v.status}</span></td>
+          <td style="font-weight:600;">${v.p50_throughput_kBps ? Math.round(v.p50_throughput_kBps) + ' KB/s' : '—'}</td>
+          <td>${v.p50_latency_ms ? Math.round(v.p50_latency_ms) + ' ms' : '—'}</td>
+          <td>${v.clients || 0}</td>
+          <td>${v.server_corroborated ? '✓ Yes' : 'No'}</td>
+          <td style="font-size:12px; color:var(--text-muted);">${v.last_seen ? new Date(v.last_seen).toLocaleDateString() : '—'}</td>
+          <td>
+            ${v.status !== 'validated' ? `<button class="btn btn-success btn-sm" onclick="setPresetStatus('${v.operator_key}', '${v.network_key}', '${v.config_id}', 'validate')">Validate</button>` : ''}
+            ${v.status !== 'retired' ? `<button class="btn btn-danger btn-sm" onclick="setPresetStatus('${v.operator_key}', '${v.network_key}', '${v.config_id}', 'retire')">Retire</button>` : ''}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function setPresetStatus(opKey, netKey, configId, action) {
+      try {
+        const res = await api(`/v1/admin/presets/${action}`, {
+          method: 'POST',
+          body: JSON.stringify({ operator_key: opKey, network_key: netKey, config_id: configId })
+        });
+        if (res.ok) {
+          showBanner(`Preset marked as ${action}d`);
+          loadPresets();
+        }
+      } catch (err) { showBanner(err.message, 'error'); }
+    }
+
+    async function loadAudit() {
+      const res = await api('/v1/admin/audit?limit=50');
+      if (!res.ok) return;
+      const data = await res.json();
+      const audit = data.audit || [];
+      const tbody = document.getElementById('auditTableBody');
+      tbody.innerHTML = '';
+
+      audit.forEach(a => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>#${a.id}</td>
+          <td style="font-weight:600;">${a.actor}</td>
+          <td><code>${a.action}</code></td>
+          <td>${a.target || '—'}</td>
+          <td style="font-size:12px; color:var(--text-muted); max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${a.detail}</td>
+          <td style="font-size:12px; color:var(--text-muted);">${new Date(a.created_at).toLocaleString()}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadAll() {
+      if (!authToken) {
+        showLogin();
+        return;
+      }
+      try {
+        await Promise.all([loadUsers(), loadOperators(), loadPresets(), loadAudit()]);
+      } catch (err) {
+        // Handled in api()
+      }
+    }
+
+    window.toggleChannel = toggleChannel;
+    window.confirmOperator = confirmOperator;
+    window.renameOperator = renameOperator;
+    window.mergeOperator = mergeOperator;
+    window.setPresetStatus = setPresetStatus;
+
+    loadAll();
+  </script>
+</body>
+</html>
