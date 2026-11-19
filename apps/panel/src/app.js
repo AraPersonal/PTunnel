@@ -48,6 +48,8 @@ function sessionPayload(user, token, config) {
     totalBytes: Number(user.total_bytes) || 53687091200,
     expiryDaysRemaining: remainingDays,
     username: user.username,
+    role: user.role || 'user',
+    channel: user.channel || 'prod',
     status: user.is_enabled ? 'active' : 'suspended',
     expiresAt: expiresAt.toISOString(),
     servers: [
@@ -100,6 +102,11 @@ export function createApp(config, deps = {}) {
   });
   discovery.seedOperators();
   discovery.seedDoors();
+  discovery.applyHousekeeping();
+  const housekeepingTimer = setInterval(() => {
+    try { discovery.applyHousekeeping(); } catch (_) {}
+  }, 3600000);
+  housekeepingTimer.unref();
 
   // --- Health & Diagnostic Endpoints ---
   app.get('/healthz', (_req, res) => {
@@ -167,8 +174,8 @@ export function createApp(config, deps = {}) {
 
     // Google services return 403 Forbidden or block when dialed from sanctioned regions.
     // Two-hop / clean exit passes with 200/302/404.
-    const sanctionsBypassed = alkali !== 403 && alkali > 0 && gemini !== 403 && gemini > 0;
-    const verdict = (g204 === 204 && sanctionsBypassed) ? 'clean' : (alkali === 403 ? 'sanctioned' : 'degraded');
+    const sanctionsBypassed = alkali !== 403 && alkali > 0 && gemini !== 403 && gemini > 0 && aistudio !== 403;
+    const verdict = (g204 === 204 && sanctionsBypassed) ? 'clean' : (alkali === 403 || aistudio === 403 || gemini === 403 ? 'sanctioned' : 'degraded');
 
     res.json({
       google_204: g204 === 204,
@@ -443,8 +450,8 @@ export function createApp(config, deps = {}) {
     });
   });
 
-  // Download endpoint with HTTP 206 Partial Content support
-  app.get('/dl', (req, res) => {
+  // Download endpoint with HTTP 206 Partial Content support (available at /dl and /v1/dl)
+  const handleDownload = (req, res) => {
     const dummyFileSize = 1048576; // 1 MB test dummy
     const range = req.headers.range;
 
@@ -469,7 +476,10 @@ export function createApp(config, deps = {}) {
     res.setHeader('Content-Range', `bytes ${start}-${end}/${dummyFileSize}`);
     res.setHeader('Content-Length', chunksize);
     res.send(Buffer.alloc(chunksize, 0));
-  });
+  };
+
+  app.get('/dl', handleDownload);
+  app.get('/v1/dl', handleDownload);
 
   // --- Network discovery & the open operator registry (docs/design/0001) ---
   registerDiscoveryRoutes(app, { discovery, auth, adminAuth });

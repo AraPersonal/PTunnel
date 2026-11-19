@@ -14,5 +14,5 @@ H2 = {{ awg_h2 | default(839201948) }}
 H3 = {{ awg_h3 | default(1928472910) }}
 H4 = {{ awg_h4 | default(492018471) }}
 
-PostUp = iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE; iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT
-PostDown = iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE; iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT
+PostUp = iptables -t nat -A POSTROUTING -o {{ awg_interface | default(ansible_default_ipv4.interface | default('eth0')) }} -j MASQUERADE; iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT
+PostDown = iptables -t nat -D POSTROUTING -o {{ awg_interface | default(ansible_default_ipv4.interface | default('eth0')) }} -j MASQUERADE; iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT

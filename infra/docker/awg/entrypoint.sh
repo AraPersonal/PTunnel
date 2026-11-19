@@ -3,7 +3,15 @@
 set -eu
 
 : "${AWG_CONFIG:=/etc/amnezia/amneziawg/wg0.conf}"
-[ -r "$AWG_CONFIG" ] || { echo "AmneziaWG config not readable: $AWG_CONFIG"; exit 1; }
+if [ ! -r "$AWG_CONFIG" ]; then
+  echo "AmneziaWG config not found or not readable at $AWG_CONFIG. Standing by until configured."
+  trap "exit 0" SIGTERM SIGINT
+  while [ ! -r "$AWG_CONFIG" ]; do
+    sleep 10 &
+    wait $!
+  done
+  echo "AmneziaWG config detected at $AWG_CONFIG, proceeding with startup."
+fi
 
 # Enable IPv4 forwarding inside network namespace if available
 sysctl -w net.ipv4.ip_forward=1 2>/dev/null || true

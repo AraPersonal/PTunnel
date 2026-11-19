@@ -386,6 +386,17 @@
 
   <script>
     let authToken = localStorage.getItem('ptunnel_admin_token') || '';
+    const operatorsCache = new Map();
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
 
     function showBanner(msg, type = 'success') {
       const b = document.getElementById('alertBanner');
@@ -439,6 +450,11 @@
         const data = await res.json();
         if (!res.ok || !data.token) {
           errBox.textContent = data.message || 'Login failed';
+          errBox.style.display = 'block';
+          return;
+        }
+        if (data.role && data.role !== 'admin') {
+          errBox.textContent = 'Account does not have administrator privileges.';
           errBox.style.display = 'block';
           return;
         }
@@ -507,16 +523,21 @@
 
         const percent = Math.min(100, Math.round(((u.used_bytes || 0) / (u.total_bytes || 1)) * 100));
         const tr = document.createElement('tr');
+        const safeUid = escapeHtml(u.uid);
+        const safeRole = escapeHtml(u.role);
+        const safeChannel = escapeHtml(u.channel);
+        const nextChannel = u.channel === 'prod' ? 'beta' : 'prod';
+
         tr.innerHTML = `
           <td>
-            <div style="font-weight:600;">${u.username}</div>
-            <div style="font-size:12px; color:var(--text-muted);">${u.display_name || ''}</div>
+            <div style="font-weight:600;">${escapeHtml(u.username)}</div>
+            <div style="font-size:12px; color:var(--text-muted);">${escapeHtml(u.display_name || '')}</div>
           </td>
-          <td><span class="badge ${u.role === 'admin' ? 'badge-confirmed' : 'badge-candidate'}">${u.role}</span></td>
+          <td><span class="badge ${u.role === 'admin' ? 'badge-confirmed' : 'badge-candidate'}">${safeRole}</span></td>
           <td>
-            <span class="badge badge-${u.channel}">${u.channel}</span>
-            <button class="btn btn-outline btn-sm" style="margin-left:6px;" onclick="toggleChannel('${u.uid}', '${u.channel === 'prod' ? 'beta' : 'prod'}')">
-              Switch to ${u.channel === 'prod' ? 'beta' : 'prod'}
+            <span class="badge badge-${safeChannel}">${safeChannel}</span>
+            <button class="btn btn-outline btn-sm" style="margin-left:6px;" onclick="toggleChannel('${safeUid}', '${nextChannel}')">
+              Switch to ${nextChannel}
             </button>
           </td>
           <td>
@@ -526,7 +547,7 @@
           <td><span class="badge ${u.is_enabled ? 'badge-validated' : 'badge-retired'}">${u.is_enabled ? 'Active' : 'Suspended'}</span></td>
           <td style="font-size:12px; color:var(--text-muted);">${u.last_seen_at ? new Date(u.last_seen_at).toLocaleString() : 'Never'}</td>
           <td>
-            <span style="font-size:12px; color:var(--text-muted);">${u.plan_title || ''}</span>
+            <span style="font-size:12px; color:var(--text-muted);">${escapeHtml(u.plan_title || '')}</span>
           </td>
         `;
         tbody.appendChild(tr);
@@ -561,23 +582,32 @@
       if (!res.ok) return;
       const data = await res.json();
       const ops = data.operators || [];
+      operatorsCache.clear();
       const tbody = document.getElementById('operatorsTableBody');
       tbody.innerHTML = '';
 
       ops.forEach(op => {
+        operatorsCache.set(op.operator_key, op);
         const tr = document.createElement('tr');
+        const safeKey = escapeHtml(op.operator_key);
+        const safeTag = escapeHtml(op.operator_tag);
+        const safeName = escapeHtml(op.display_name || '—');
+        const safeType = escapeHtml(op.network_type);
+        const safeStatus = escapeHtml(op.status);
+        const safeSource = escapeHtml(op.source);
+
         tr.innerHTML = `
-          <td><code>${op.operator_key}</code></td>
-          <td>${op.operator_tag}</td>
-          <td style="font-weight:500;">${op.display_name || '—'}</td>
-          <td>${op.network_type}</td>
-          <td><span class="badge badge-${op.status}">${op.status}</span></td>
-          <td style="font-size:12px; color:var(--text-muted);">${op.source}</td>
+          <td><code>${safeKey}</code></td>
+          <td>${safeTag}</td>
+          <td style="font-weight:500;">${safeName}</td>
+          <td>${safeType}</td>
+          <td><span class="badge badge-${safeStatus}">${safeStatus}</span></td>
+          <td style="font-size:12px; color:var(--text-muted);">${safeSource}</td>
           <td style="font-size:12px; color:var(--text-muted);">${op.last_seen ? new Date(op.last_seen).toLocaleString() : '—'}</td>
           <td>
-            ${op.status === 'provisional' ? `<button class="btn btn-success btn-sm" onclick="confirmOperator('${op.operator_key}')">Confirm</button>` : ''}
-            <button class="btn btn-outline btn-sm" onclick="renameOperator('${op.operator_key}', '${op.display_name}')">Rename</button>
-            <button class="btn btn-outline btn-sm" onclick="mergeOperator('${op.operator_key}')">Merge</button>
+            ${op.status === 'provisional' ? `<button class="btn btn-success btn-sm" onclick="confirmOperator('${safeKey}')">Confirm</button>` : ''}
+            <button class="btn btn-outline btn-sm" onclick="renameOperator('${safeKey}')">Rename</button>
+            <button class="btn btn-outline btn-sm" onclick="mergeOperator('${safeKey}')">Merge</button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -598,7 +628,9 @@
       } catch (err) { showBanner(err.message, 'error'); }
     }
 
-    async function renameOperator(key, current) {
+    async function renameOperator(key) {
+      const op = operatorsCache.get(key);
+      const current = op ? (op.display_name || '') : '';
       const name = prompt(`Enter new display name for operator ${key}:`, current);
       if (name === null) return;
       try {
@@ -638,18 +670,23 @@
 
       validations.forEach(v => {
         const tr = document.createElement('tr');
+        const safeNetKey = escapeHtml(v.network_key);
+        const safeConfigId = escapeHtml(v.config_id || '');
+        const safeOpKey = escapeHtml(v.operator_key || '');
+        const safeStatus = escapeHtml(v.status);
+
         tr.innerHTML = `
-          <td><code>${v.network_key}</code></td>
-          <td><code>${v.config_id.slice(0, 10)}...</code></td>
-          <td><span class="badge badge-${v.status}">${v.status}</span></td>
+          <td><code>${safeNetKey}</code></td>
+          <td><code>${safeConfigId.slice(0, 10)}...</code></td>
+          <td><span class="badge badge-${safeStatus}">${safeStatus}</span></td>
           <td style="font-weight:600;">${v.p50_throughput_kBps ? Math.round(v.p50_throughput_kBps) + ' KB/s' : '—'}</td>
           <td>${v.p50_latency_ms ? Math.round(v.p50_latency_ms) + ' ms' : '—'}</td>
           <td>${v.clients || 0}</td>
           <td>${v.server_corroborated ? '✓ Yes' : 'No'}</td>
           <td style="font-size:12px; color:var(--text-muted);">${v.last_seen ? new Date(v.last_seen).toLocaleDateString() : '—'}</td>
           <td>
-            ${v.status !== 'validated' ? `<button class="btn btn-success btn-sm" onclick="setPresetStatus('${v.operator_key}', '${v.network_key}', '${v.config_id}', 'validate')">Validate</button>` : ''}
-            ${v.status !== 'retired' ? `<button class="btn btn-danger btn-sm" onclick="setPresetStatus('${v.operator_key}', '${v.network_key}', '${v.config_id}', 'retire')">Retire</button>` : ''}
+            ${v.status !== 'validated' ? `<button class="btn btn-success btn-sm" onclick="setPresetStatus('${safeOpKey}', '${safeNetKey}', '${safeConfigId}', 'validate')">Validate</button>` : ''}
+            ${v.status !== 'retired' ? `<button class="btn btn-danger btn-sm" onclick="setPresetStatus('${safeOpKey}', '${safeNetKey}', '${safeConfigId}', 'retire')">Retire</button>` : ''}
           </td>
         `;
         tbody.appendChild(tr);
@@ -681,10 +718,10 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>#${a.id}</td>
-          <td style="font-weight:600;">${a.actor}</td>
-          <td><code>${a.action}</code></td>
-          <td>${a.target || '—'}</td>
-          <td style="font-size:12px; color:var(--text-muted); max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${a.detail}</td>
+          <td style="font-weight:600;">${escapeHtml(a.actor)}</td>
+          <td><code>${escapeHtml(a.action)}</code></td>
+          <td>${escapeHtml(a.target || '—')}</td>
+          <td style="font-size:12px; color:var(--text-muted); max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(a.detail)}</td>
           <td style="font-size:12px; color:var(--text-muted);">${new Date(a.created_at).toLocaleString()}</td>
         `;
         tbody.appendChild(tr);

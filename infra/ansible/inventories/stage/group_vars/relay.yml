@@ -8,5 +8,8 @@ xray_kcp_port: 18444
 # sanitised list and the routing rule can never drift apart.
 xray_sniff_domains:
   - "domain:gemini.google.com"
+  - "domain:aistudio.google.com"
   - "domain:alkalimakersuite-pa.googleapis.com"
+  - "domain:chatgpt.com"
+  - "domain:openai.com"
   - 'regexp:^[a-z0-9][a-z0-9-]*-pa\.googleapis\.com$'

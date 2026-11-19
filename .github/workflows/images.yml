@@ -19,6 +19,8 @@ jobs:
             context: infra/docker/xray
           - name: hysteria
             context: infra/docker/hysteria
+          - name: awg
+            context: infra/docker/awg
     steps:
       - uses: actions/checkout@v4
       # Container registry references must be lowercase. github.repository keeps the owner's casing,

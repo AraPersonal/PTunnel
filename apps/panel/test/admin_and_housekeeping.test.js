@@ -217,3 +217,32 @@ test('geo canary endpoint returns enhanced sanctions verdict and fields', async 
     assert.ok(body.timestamp);
   });
 });
+
+test('login payload includes user role and channel', async () => {
+  await withPanel(async ({ base }) => {
+    const res = await fetch(`${base}/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin@ptunnel.net', password: 'password123' }),
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.role, 'admin');
+    assert.equal(body.channel, 'prod');
+    assert.ok(body.token);
+  });
+});
+
+test('download endpoint is accessible at /v1/dl with HTTP 206 Partial Content', async () => {
+  await withPanel(async ({ base }) => {
+    const rangeRes = await fetch(`${base}/v1/dl`, {
+      headers: { Range: 'bytes=0-524287' },
+    });
+    assert.equal(rangeRes.status, 206);
+    assert.equal(rangeRes.headers.get('accept-ranges'), 'bytes');
+    assert.equal(rangeRes.headers.get('content-range'), 'bytes 0-524287/1048576');
+    assert.equal(rangeRes.headers.get('content-length'), '524288');
+    const buf = await rangeRes.arrayBuffer();
+    assert.equal(buf.byteLength, 524288);
+  });
+});

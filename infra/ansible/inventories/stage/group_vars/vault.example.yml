@@ -7,3 +7,7 @@ vault_kcp_seed: ""            # kcp seed string
 vault_ghcr_token: ""          # read:packages token for pulling images
 vault_hy2_password: ""     # Hysteria2 user password"
 vault_hy2_obfs: ""         # salamander obfuscation password
+vault_awg_server_private_key: "" # AmneziaWG server base64 private key
+xray_hop_server: ""              # Optional 2nd hop socks5/http proxy for sanctions bypass
+vault_xray_hop_user: ""          # 2nd hop proxy username
+vault_xray_hop_pass: ""          # 2nd hop proxy password
