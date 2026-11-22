@@ -22,7 +22,7 @@ android {
       isEnable = true
       reset()
       include("arm64-v8a", "armeabi-v7a")
-      isUniversalApk = false
+      isUniversalApk = true
     }
   }
 

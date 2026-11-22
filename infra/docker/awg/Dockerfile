@@ -5,7 +5,7 @@ FROM golang:${GOLANG_VERSION} AS builder
 RUN apk add --no-cache git make build-base linux-headers
 
 # Build amneziawg-go (userspace implementation)
-ARG AWG_GO_VERSION=v0.2.14
+ARG AWG_GO_VERSION=v0.2.15
 WORKDIR /src
 RUN git clone --depth 1 --branch ${AWG_GO_VERSION} https://github.com/amnezia-vpn/amneziawg-go.git \
     && cd amneziawg-go \
