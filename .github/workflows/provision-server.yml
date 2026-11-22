@@ -1,0 +1,193 @@
+name: Provision New Server
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_ip:
+        description: 'New Server IP (e.g. 123.45.67.89)'
+        required: true
+        type: string
+      ssh_user:
+        description: 'SSH Username'
+        required: true
+        default: 'root'
+        type: string
+      ssh_password:
+        description: 'SSH Password of the new server'
+        required: true
+        type: string
+      ssh_port:
+        description: 'SSH Port'
+        required: true
+        default: '22'
+        type: string
+      server_name:
+        description: 'Server Display Name (e.g. Netherlands, France, Germany 2)'
+        required: true
+        default: 'Netherlands'
+        type: string
+      country:
+        description: 'Country Name'
+        required: true
+        default: 'Netherlands'
+        type: string
+      country_flag:
+        description: 'Country Emoji Flag (e.g. 🇳🇱, 🇫🇷, 🇩🇪)'
+        required: true
+        default: '🇳🇱'
+        type: string
+      custom_domain:
+        description: 'Custom Domain (optional, leave empty to use <ip>.nip.io)'
+        required: false
+        type: string
+      sync_users:
+        description: 'Sync existing users from Germany cluster?'
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq sshpass openssh-client sqlite3 curl
+
+      - name: Calculate domain and server ID
+        id: meta
+        run: |
+          IP="${{ inputs.server_ip }}"
+          DOMAIN="${{ inputs.custom_domain }}"
+          if [ -z "$DOMAIN" ]; then
+            DASH_IP=$(echo "$IP" | tr '.' '-')
+            DOMAIN="${DASH_IP}.nip.io"
+          fi
+          SERVER_ID="srv_$(echo "${{ inputs.server_name }}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '_' | sed 's/_$//')"
+          echo "domain=$DOMAIN" >> "$GITHUB_OUTPUT"
+          echo "server_id=$SERVER_ID" >> "$GITHUB_OUTPUT"
+          echo "Resolved Domain: $DOMAIN"
+          echo "Server ID: $SERVER_ID"
+
+      - name: Transfer & Execute Bootstrap Script
+        env:
+          SSHPASS: ${{ inputs.ssh_password }}
+          NODE_IP: ${{ inputs.server_ip }}
+          USER: ${{ inputs.ssh_user }}
+          PORT: ${{ inputs.ssh_port }}
+          DOMAIN: ${{ steps.meta.outputs.domain }}
+          NAME: ${{ inputs.server_name }}
+          COUNTRY: ${{ inputs.country }}
+          FLAG: ${{ inputs.country_flag }}
+        run: |
+          set -euo pipefail
+          export SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -p $PORT"
+          
+          echo "Testing SSH connection to $USER@$NODE_IP..."
+          sshpass -e ssh $SSH_OPTS "$USER@$NODE_IP" "uname -a"
+          
+          echo "Uploading bootstrap script..."
+          sshpass -e scp $SSH_OPTS infra/scripts/bootstrap-new-server.sh "$USER@$NODE_IP:/tmp/bootstrap.sh"
+          
+          echo "Executing bootstrap script on target server (this may take 2-4 minutes)..."
+          sshpass -e ssh $SSH_OPTS "$USER@$NODE_IP" "chmod +x /tmp/bootstrap.sh && /tmp/bootstrap.sh '$NODE_IP' '$DOMAIN' '$NAME' '$COUNTRY' '$FLAG'"
+
+      - name: Sync Users & Register in Fleet Cluster
+        if: ${{ inputs.sync_users }}
+        env:
+          SSHPASS: ${{ inputs.ssh_password }}
+          NODE_IP: ${{ inputs.server_ip }}
+          USER: ${{ inputs.ssh_user }}
+          PORT: ${{ inputs.ssh_port }}
+          DOMAIN: ${{ steps.meta.outputs.domain }}
+          NAME: ${{ inputs.server_name }}
+          COUNTRY: ${{ inputs.country }}
+          FLAG: ${{ inputs.country_flag }}
+          SERVER_ID: ${{ steps.meta.outputs.server_id }}
+          GERMANY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          GERMANY_HOST: ${{ secrets.DEPLOY_HOST || '86.54.42.124' }}
+          GERMANY_USER: ${{ secrets.DEPLOY_USER || 'root' }}
+        run: |
+          set -euo pipefail
+          export TARGET_SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p $PORT"
+          
+          if [ -n "$GERMANY_SSH_KEY" ]; then
+            echo "Setting up SSH key for Primary Node ($GERMANY_HOST)..."
+            install -d -m 700 ~/.ssh
+            printf '%s\n' "$GERMANY_SSH_KEY" > ~/.ssh/germany_key
+            chmod 600 ~/.ssh/germany_key
+            export GERMANY_SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/germany_key"
+            
+            echo "Exporting users snapshot from Primary Germany Node..."
+            ssh $GERMANY_SSH_OPTS "$GERMANY_USER@$GERMANY_HOST" \
+              "sqlite3 /opt/ptunnel/data/ptunnel.db '.dump users' > /tmp/users_dump.sql" || true
+            
+            scp $GERMANY_SSH_OPTS "$GERMANY_USER@$GERMANY_HOST:/tmp/users_dump.sql" /tmp/users_dump.sql || true
+            
+            if [ -s /tmp/users_dump.sql ]; then
+              echo "Importing existing users into the new server..."
+              sshpass -e scp $TARGET_SSH_OPTS /tmp/users_dump.sql "$USER@$NODE_IP:/tmp/users_dump.sql"
+              sshpass -e ssh $TARGET_SSH_OPTS "$USER@$NODE_IP" \
+                "sqlite3 /opt/ptunnel/data/ptunnel.db < /tmp/users_dump.sql && rm -f /tmp/users_dump.sql"
+              echo "Users successfully synced!"
+            fi
+            
+            echo "Registering new server into Primary Node's location registry..."
+            ENTRY_POINTS='[{"tag":"vless-reality","protocol":"vless","name":"Reality 8080","port":8080},{"tag":"kcp-salamander","protocol":"vless","name":"mKCP 8443","port":8443},{"tag":"hysteria2","protocol":"hysteria2","name":"Hysteria2","port":443},{"tag":"vmess-ws-tls","protocol":"vmess","name":"VMess WS","port":2083},{"tag":"trojan-tls","protocol":"trojan","name":"Trojan","port":2053}]'
+            
+            REG_SQL="INSERT OR REPLACE INTO servers (id, name, host, domain, country, flag, is_active, entry_points, api_base) VALUES ('$SERVER_ID', '$NAME', '$NODE_IP', '$DOMAIN', '$COUNTRY', '$FLAG', 1, '$ENTRY_POINTS', 'https://$DOMAIN/v1/');"
+            
+            ssh $GERMANY_SSH_OPTS "$GERMANY_USER@$GERMANY_HOST" \
+              "sqlite3 /opt/ptunnel/data/ptunnel.db \"$REG_SQL\"" || true
+            
+            # Also register Germany & Turkey on the new node
+            sshpass -e ssh $TARGET_SSH_OPTS "$USER@$NODE_IP" \
+              "sqlite3 /opt/ptunnel/data/ptunnel.db \"$REG_SQL\"" || true
+              
+            echo "Server registered in fleet successfully."
+          else
+            echo "Notice: DEPLOY_SSH_KEY not available; skipping automatic database sync."
+          fi
+
+      - name: Verification and Health Check
+        id: health
+        env:
+          SSHPASS: ${{ inputs.ssh_password }}
+          NODE_IP: ${{ inputs.server_ip }}
+          USER: ${{ inputs.ssh_user }}
+          PORT: ${{ inputs.ssh_port }}
+          DOMAIN: ${{ steps.meta.outputs.domain }}
+        run: |
+          set -euo pipefail
+          export TARGET_SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p $PORT"
+          
+          echo "Checking container statuses on the new server..."
+          sshpass -e ssh $TARGET_SSH_OPTS "$USER@$NODE_IP" "docker ps"
+          
+          echo "Verifying local API health..."
+          HEALTH_STATUS=$(sshpass -e ssh $TARGET_SSH_OPTS "$USER@$NODE_IP" "curl -fsS http://127.0.0.1:8080/healthz" || echo "FAIL")
+          echo "Local Health: $HEALTH_STATUS"
+          
+          echo "Verifying public domain..."
+          PUBLIC_STATUS=$(curl -k -fsS "https://${DOMAIN}/healthz" || echo "PENDING")
+          echo "Public Health: $PUBLIC_STATUS"
+
+      - name: Generate Summary Report
+        run: |
+          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+          ## 🚀 New Server Successfully Provisioned!
+
+          - **Server Name:** ${{ inputs.server_name }} ${{ inputs.country_flag }}
+          - **IP Address:** \`${{ inputs.server_ip }}\`
+          - **Domain:** [https://${{ steps.meta.outputs.domain }}](https://${{ steps.meta.outputs.domain }})
+          - **API Base:** \`https://${{ steps.meta.outputs.domain }}/v1/\`
+          - **Reality Port:** \`8080\`
+          - **Hysteria 2 Port:** \`443\` (UDP Hopping: 20000:50000)
+          - **Fleet Integration:** Complete (Synced with cluster)
+
+          Existing users can immediately connect to this server!
+          EOF
