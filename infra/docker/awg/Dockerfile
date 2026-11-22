@@ -1,6 +1,6 @@
 # Multi-stage build for AmneziaWG (amneziawg-go and amneziawg-tools)
 # Pinned version for reproducible, hermetic builds.
-ARG GOLANG_VERSION=1.23-alpine
+ARG GOLANG_VERSION=alpine
 FROM golang:${GOLANG_VERSION} AS builder
 RUN apk add --no-cache git make build-base linux-headers
 
