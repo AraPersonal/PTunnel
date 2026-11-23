@@ -143,9 +143,10 @@ test('locations: returns Germany and Turkey nodes', async () => {
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.ok(Array.isArray(body.locations));
-    assert.equal(body.locations.length, 2);
+    assert.equal(body.locations.length, 3);
     assert.equal(body.locations[0].country, 'Germany');
-    assert.equal(body.locations[1].country, 'Turkey');
+    assert.equal(body.locations[1].country, 'Germany');
+    assert.equal(body.locations[2].country, 'Turkey');
   });
 });
 

@@ -154,6 +154,9 @@ fun VpnScreen(
                 onLoginSubmit = { username, password ->
                     vpnViewModel.login(username, password)
                 },
+                onGuestAccess = {
+                    vpnViewModel.enterAsGuest()
+                },
                 modifier = modifier
             )
         } else {

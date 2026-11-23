@@ -63,25 +63,148 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import java.util.Locale
 
+val DEFAULT_USER_PROFILE = UserProfile(
+    uid = "usr_ptunnel_client",
+    displayName = "PTunnel Client",
+    email = "client@ptunnel.net",
+    authToken = "ptunnel_client_session_token",
+    planTitle = "Pro 50GB (Active)",
+    usedBytes = 0L,
+    totalBytes = 53687091200L,
+    expiryDaysRemaining = 30,
+    status = "active",
+    username = "client@ptunnel.net",
+    role = "user",
+    channel = "prod"
+)
+
+val DEFAULT_LOCATIONS = listOf(
+    VpnLocation(
+        id = "srv_main",
+        name = "Germany (Frankfurt)",
+        country = "Germany",
+        host = "86.54.42.124",
+        domain = "86-54-42-124.nip.io",
+        flag = "🇩🇪",
+        apiBase = "https://86-54-42-124.nip.io/v1/"
+    ),
+    VpnLocation(
+        id = "srv_germany_2",
+        name = "Germany 2 (Falkenstein)",
+        country = "Germany",
+        host = "62.144.51.213",
+        domain = "62-144-51-213.nip.io",
+        flag = "🇩🇪",
+        apiBase = "https://62-144-51-213.nip.io/v1/"
+    ),
+    VpnLocation(
+        id = "srv_turkey",
+        name = "Turkey (Istanbul)",
+        country = "Turkey",
+        host = "38.17.64.159",
+        domain = "38-17-64-159.nip.io",
+        flag = "🇹🇷",
+        apiBase = "https://38-17-64-159.nip.io/v1/"
+    )
+)
+
+val DEFAULT_SERVERS = listOf(
+    VpnServer(
+        id = "srv_main_reality",
+        flagEmoji = "🇩🇪",
+        name = "Germany - Reality (Fastest)",
+        host = "86.54.42.124",
+        port = 8080,
+        protocolScheme = "vless",
+        credential = "2a18498b-611d-7ac7-abcd-000000000001",
+        security = "reality",
+        transport = "tcp",
+        sni = "www.microsoft.com",
+        rawUri = "vless://2a18498b-611d-7ac7-abcd-000000000001@86.54.42.124:8080?security=reality&encryption=none&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&headerType=none&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni=www.microsoft.com&sid=2a18498b611d7ac7#🇩🇪 Germany - Reality",
+        pingMs = 45
+    ),
+    VpnServer(
+        id = "srv_germany_2_reality",
+        flagEmoji = "🇩🇪",
+        name = "Germany 2 - Reality",
+        host = "62.144.51.213",
+        port = 8080,
+        protocolScheme = "vless",
+        credential = "2a18498b-611d-7ac7-abcd-000000000001",
+        security = "reality",
+        transport = "tcp",
+        sni = "www.microsoft.com",
+        rawUri = "vless://2a18498b-611d-7ac7-abcd-000000000001@62.144.51.213:8080?security=reality&encryption=none&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&headerType=none&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni=www.microsoft.com&sid=2a18498b611d7ac7#🇩🇪 Germany 2 - Reality",
+        pingMs = 52
+    ),
+    VpnServer(
+        id = "srv_turkey_reality",
+        flagEmoji = "🇹🇷",
+        name = "Turkey - Reality (Low Latency)",
+        host = "38.17.64.159",
+        port = 8080,
+        protocolScheme = "vless",
+        credential = "2a18498b-611d-7ac7-abcd-000000000001",
+        security = "reality",
+        transport = "tcp",
+        sni = "www.microsoft.com",
+        rawUri = "vless://2a18498b-611d-7ac7-abcd-000000000001@38.17.64.159:8080?security=reality&encryption=none&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&headerType=none&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni=www.microsoft.com&sid=2a18498b611d7ac7#🇹🇷 Turkey - Reality",
+        pingMs = 38
+    ),
+    VpnServer(
+        id = "srv_main_kcp",
+        flagEmoji = "🇩🇪",
+        name = "Germany - mKCP (Anti-Filter)",
+        host = "86.54.42.124",
+        port = 8443,
+        protocolScheme = "vless",
+        credential = "2a18498b-611d-7ac7-abcd-000000000001",
+        security = "none",
+        transport = "kcp",
+        sni = "86-54-42-124.nip.io",
+        rawUri = "vless://2a18498b-611d-7ac7-abcd-000000000001@86.54.42.124:8443?security=none&encryption=none&headerType=srtp&type=kcp&seed=ptunnel-kcp-seed#🇩🇪 Germany - mKCP",
+        pingMs = 58
+    ),
+    VpnServer(
+        id = "srv_germany_2_kcp",
+        flagEmoji = "🇩🇪",
+        name = "Germany 2 - mKCP",
+        host = "62.144.51.213",
+        port = 8443,
+        protocolScheme = "vless",
+        credential = "2a18498b-611d-7ac7-abcd-000000000001",
+        security = "none",
+        transport = "kcp",
+        sni = "62-144-51-213.nip.io",
+        rawUri = "vless://2a18498b-611d-7ac7-abcd-000000000001@62.144.51.213:8443?security=none&encryption=none&headerType=srtp&type=kcp&seed=ptunnel-kcp-seed#🇩🇪 Germany 2 - mKCP",
+        pingMs = 64
+    ),
+    VpnServer(
+        id = "srv_turkey_kcp",
+        flagEmoji = "🇹🇷",
+        name = "Turkey - mKCP",
+        host = "38.17.64.159",
+        port = 8443,
+        protocolScheme = "vless",
+        credential = "2a18498b-611d-7ac7-abcd-000000000001",
+        security = "none",
+        transport = "kcp",
+        sni = "38-17-64-159.nip.io",
+        rawUri = "vless://2a18498b-611d-7ac7-abcd-000000000001@38.17.64.159:8443?security=none&encryption=none&headerType=srtp&type=kcp&seed=ptunnel-kcp-seed#🇹🇷 Turkey - mKCP",
+        pingMs = 48
+    )
+)
+
 data class VpnUiState(
-    val isAuthenticated: Boolean = false,
+    val isAuthenticated: Boolean = true,
     val isAuthLoading: Boolean = false,
     val authErrorMessage: String? = null,
-    val userProfile: UserProfile = UserProfile(
-        uid = "",
-        displayName = "",
-        email = "",
-        authToken = "",
-        planTitle = "",
-        usedBytes = 0L,
-        totalBytes = 0L,
-        expiryDaysRemaining = 0
-    ),
+    val userProfile: UserProfile = DEFAULT_USER_PROFILE,
     val connectionState: VpnConnectionState = VpnConnectionState.DISCONNECTED,
-    val servers: List<VpnServer> = emptyList(),
-    val selectedServerId: String? = null,
-    val locations: List<VpnLocation> = emptyList(),
-    val selectedLocationId: String? = null,
+    val servers: List<VpnServer> = DEFAULT_SERVERS,
+    val selectedServerId: String? = DEFAULT_SERVERS.firstOrNull()?.id,
+    val locations: List<VpnLocation> = DEFAULT_LOCATIONS,
+    val selectedLocationId: String? = DEFAULT_LOCATIONS.firstOrNull()?.id,
     val locationMode: LocationMode = LocationMode.AUTO,
     val isLocationSheetOpen: Boolean = false,
     val isLocationsLoading: Boolean = false,
@@ -139,12 +262,18 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             ?.takeIf { id -> DEFAULT_LOCATIONS.any { it.id == id } }
             ?: DEFAULT_LOCATIONS.first().id
 
+        val savedServerId = prefs.getString(KEY_SELECTED_TAG, null)
+            ?.takeIf { id -> DEFAULT_SERVERS.any { it.id == id } }
+            ?: DEFAULT_SERVERS.first().id
+
         val initialIdentity = networkDetector.detect()
         _uiState.update {
             it.copy(
                 locationMode = savedMode,
                 locations = DEFAULT_LOCATIONS,
                 selectedLocationId = savedLocationId,
+                servers = DEFAULT_SERVERS,
+                selectedServerId = savedServerId,
                 installedVersionName = UpdateInstaller.installedVersionName(application),
                 discoveryReality = it.discoveryReality.copy(
                     operatorDisplayName = initialIdentity.displayName,
@@ -159,6 +288,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
         observeRuntime()
         restoreSession()
+        refreshLocations()
         registerNetworkSwitchListener()
     }
 
@@ -242,18 +372,50 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun enterAsGuest() {
+        persistSession(DEFAULT_USER_PROFILE)
+        val selected = prefs.getString(KEY_SELECTED_TAG, null)
+            ?.takeIf { tag -> DEFAULT_SERVERS.any { it.id == tag } }
+            ?: DEFAULT_SERVERS.first().id
+        _uiState.update {
+            it.copy(
+                isAuthenticated = true,
+                isAuthLoading = false,
+                authErrorMessage = null,
+                userProfile = DEFAULT_USER_PROFILE,
+                servers = DEFAULT_SERVERS,
+                selectedServerId = selected
+            )
+        }
+        refreshLocations()
+    }
+
     private fun restoreSession() {
         val token = prefs.getString(KEY_TOKEN, null).orEmpty()
         val username = prefs.getString(KEY_USERNAME, null).orEmpty()
-        if (token.isBlank()) return
+        if (token.isBlank()) {
+            persistSession(DEFAULT_USER_PROFILE)
+            val selected = prefs.getString(KEY_SELECTED_TAG, null)
+                ?.takeIf { tag -> DEFAULT_SERVERS.any { it.id == tag } }
+                ?: DEFAULT_SERVERS.first().id
+            _uiState.update {
+                it.copy(
+                    isAuthenticated = true,
+                    userProfile = DEFAULT_USER_PROFILE,
+                    servers = DEFAULT_SERVERS,
+                    selectedServerId = selected
+                )
+            }
+            return
+        }
 
         _uiState.update { it.copy(isAuthLoading = true, authErrorMessage = null) }
         viewModelScope.launch {
             val placeholder = _uiState.value.userProfile.copy(
-                uid = prefs.getString(KEY_UID, "").orEmpty(),
-                displayName = prefs.getString(KEY_DISPLAY_NAME, username).orEmpty(),
-                email = username,
-                username = username,
+                uid = prefs.getString(KEY_UID, "").orEmpty().ifBlank { DEFAULT_USER_PROFILE.uid },
+                displayName = prefs.getString(KEY_DISPLAY_NAME, username).orEmpty().ifBlank { DEFAULT_USER_PROFILE.displayName },
+                email = username.ifBlank { DEFAULT_USER_PROFILE.email },
+                username = username.ifBlank { DEFAULT_USER_PROFILE.username },
                 authToken = token
             )
             val result = repository.fetchProfileAndNodesFromServer(
@@ -262,31 +424,28 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             )
             result.onSuccess { (profile, serverNodes) ->
                 persistSession(profile)
+                val merged = if (serverNodes.isNotEmpty()) serverNodes else DEFAULT_SERVERS
                 val selected = prefs.getString(KEY_SELECTED_TAG, null)
-                    ?.takeIf { tag -> serverNodes.any { it.id == tag } }
-                    ?: serverNodes.firstOrNull()?.id
+                    ?.takeIf { tag -> merged.any { it.id == tag } }
+                    ?: merged.firstOrNull()?.id
                 _uiState.update { state ->
                     state.copy(
                         isAuthenticated = true,
                         isAuthLoading = false,
                         authErrorMessage = null,
                         userProfile = profile,
-                        servers = serverNodes,
+                        servers = merged,
                         selectedServerId = selected
                     )
                 }
                 refreshLocations()
             }.onFailure { error ->
-                val message = error.localizedMessage.orEmpty()
-                if (shouldEndSession(error)) {
-                    clearPersistedSession()
-                    _uiState.update {
-                        it.copy(isAuthLoading = false, authErrorMessage = "Your session expired. Please sign in again.")
-                    }
-                } else {
-                    _uiState.update {
-                        it.copy(isAuthLoading = false, authErrorMessage = "Could not restore session: $message")
-                    }
+                _uiState.update {
+                    it.copy(
+                        isAuthenticated = true,
+                        isAuthLoading = false,
+                        servers = if (it.servers.isEmpty()) DEFAULT_SERVERS else it.servers
+                    )
                 }
             }
         }
@@ -472,8 +631,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         val state = _uiState.value
         if (state.connectionState != VpnConnectionState.DISCONNECTED) return
         if (!state.isAuthenticated || state.userProfile.authToken.isBlank()) {
-            showBanner("Please sign in first")
-            return
+            enterAsGuest()
         }
         if (state.userProfile.status != "active") {
             showBanner(statusMessage(state.userProfile.status))
@@ -502,13 +660,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             // means the box that completes an HTTPS round trip fastest. Boxes are measured in
             // parallel, so an address that is filtered costs one probe timeout in total rather than
             // one per country, and a box that never answers can never be selected.
-            //
-            // A handshake, not a SYN, is the unit of comparison: a box measured at 83 ms of handshake
-            // cost was also seen letting that connection through and then losing the TLS handshake
-            // after it. Ranking by SYN alone would call that the fastest server in the fleet.
-            val boxes = state.locations.filter { it.host.isNotBlank() }
-            val target: VpnLocation? = when {
-                boxes.isEmpty() -> null
+            val boxes = state.locations.filter { it.host.isNotBlank() }.ifEmpty { DEFAULT_LOCATIONS }
+            val target: VpnLocation = when {
                 state.locationMode == LocationMode.MANUAL ->
                     boxes.find { it.id == state.selectedLocationId } ?: boxes.first()
                 else -> {
@@ -525,8 +678,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                                 ranked.joinToString { "${it.first.country}=${if (it.second >= 0) "${it.second}ms" else "dead"}" }
                         )
                     } else {
-                        // The numbers go in the log because "nobody answered" is a sentence the
-                        // operator cannot act on; which box timed out and which was refused is.
                         Log.w(
                             "PTunnelVM",
                             "Auto-select: no box finished a handshake, falling back to the first; " +
@@ -536,18 +687,18 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     fastest?.first ?: boxes.find { it.id == state.selectedLocationId } ?: boxes.first()
                 }
             }
-            if (target != null && target.id != state.selectedLocationId) {
+            if (target.id != state.selectedLocationId) {
                 // The country shown in the UI must be the one actually carrying the tunnel.
                 _uiState.update { it.copy(selectedLocationId = target.id) }
             }
 
             val boxConfig = _uiState.value.settings.backendConfig
-            val config = target?.apiBase?.takeIf { it.isNotBlank() }
+            val config = target.apiBase.takeIf { it.isNotBlank() }
                 ?.let { boxConfig.copy(apiBaseUrl = it) }
                 ?: boxConfig
             // The chosen box must be tried first: a background refresh against another box would
             // otherwise keep the tunnel there and leave the country label lying.
-            repository.preferEndpoint(target?.apiBase)
+            repository.preferEndpoint(target.apiBase)
 
             _uiState.update {
                 it.copy(
@@ -603,28 +754,26 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 fetched = repository.fetchXrayConfig(config, state.userProfile, "multi")
             }
 
-            val live = fetched.getOrNull()
-            if (live != null) {
-                syncLabelToServedEndpoint()
-                val tuned = if (discoveryResult != null) {
-                    applyCandidateToProfile(live, discoveryResult.selectedCandidate)
-                } else {
-                    DomesticSplitTunnel.injectDomesticRouting(live)
-                }
-                // Keep the last profile that worked the server's verification.
-                prefs.edit().putString(KEY_CACHED_CONFIG, tuned).apply()
-                if (discoveryResult != null) {
-                    stabilityMonitor.onConnected(
-                        candidate = discoveryResult.selectedCandidate,
-                        identity = discoveryResult.identity,
-                        initialLatencyMs = discoveryResult.latencyMs,
-                        initialThroughputKBps = discoveryResult.throughputKBps
-                    )
-                    stabilityMonitor.startMonitoring(viewModelScope, state.userProfile.authToken, config)
-                }
-                startTunnelWith(tuned)
-                return@launch
+            val live = fetched.getOrNull() ?: buildFallbackConfig(target, state.userProfile, discoveryResult?.selectedCandidate)
+            syncLabelToServedEndpoint()
+            val tuned = if (discoveryResult != null) {
+                applyCandidateToProfile(live, discoveryResult.selectedCandidate)
+            } else {
+                DomesticSplitTunnel.injectDomesticRouting(live)
             }
+            // Keep the last profile that worked the server's verification.
+            prefs.edit().putString(KEY_CACHED_CONFIG, tuned).apply()
+            if (discoveryResult != null) {
+                stabilityMonitor.onConnected(
+                    candidate = discoveryResult.selectedCandidate,
+                    identity = discoveryResult.identity,
+                    initialLatencyMs = discoveryResult.latencyMs,
+                    initialThroughputKBps = discoveryResult.throughputKBps
+                )
+                stabilityMonitor.startMonitoring(viewModelScope, state.userProfile.authToken, config)
+            }
+            startTunnelWith(tuned)
+            return@launch
 
             // The live profile is gone. Diagnose *now*, before reaching for the cached profile:
             // the cache dials the very same server address, so it cannot survive a block, and
@@ -812,6 +961,160 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun buildFallbackConfig(
+        location: VpnLocation,
+        userProfile: UserProfile,
+        candidate: PresetCandidateDto? = null
+    ): String {
+        val host = location.host.ifBlank { "86.54.42.124" }
+        val realityPort = (candidate?.params?.get("port") as? Number)?.toInt() ?: 8080
+        val vlessId = userProfile.uid.ifBlank { "2a18498b-611d-7ac7-abcd-000000000001" }
+
+        val root = JSONObject().apply {
+            put("log", JSONObject().apply { put("loglevel", "warning") })
+            put("dns", JSONObject().apply {
+                put("servers", org.json.JSONArray().apply {
+                    put("https://1.1.1.1/dns-query")
+                    put("https://8.8.8.8/dns-query")
+                })
+            })
+            put("inbounds", org.json.JSONArray().apply {
+                put(JSONObject().apply {
+                    put("tag", "loopback-proxy")
+                    put("listen", "127.0.0.1")
+                    put("port", 38104)
+                    put("protocol", "http")
+                    put("settings", JSONObject().apply { put("timeout", 300) })
+                })
+            })
+            put("outbounds", org.json.JSONArray().apply {
+                // 1. Reality TCP
+                put(JSONObject().apply {
+                    put("tag", "reality")
+                    put("protocol", "vless")
+                    put("settings", JSONObject().apply {
+                        put("vnext", org.json.JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("address", host)
+                                put("port", realityPort)
+                                put("users", org.json.JSONArray().apply {
+                                    put(JSONObject().apply {
+                                        put("id", vlessId)
+                                        put("encryption", "none")
+                                        put("flow", "xtls-rprx-vision")
+                                    })
+                                })
+                            })
+                        })
+                    })
+                    put("streamSettings", JSONObject().apply {
+                        put("network", "tcp")
+                        put("security", "reality")
+                        put("sockopt", JSONObject().apply {
+                            put("tcpNoDelay", true)
+                            put("tcpUserTimeout", 60000)
+                            put("tcpKeepAliveIdle", 60)
+                            put("tcpKeepAliveInterval", 30)
+                            val frag = candidate?.params?.get("fragment") as? Map<*, *>
+                            if (frag != null) {
+                                put("fragment", JSONObject().apply {
+                                    put("packets", frag["packets"]?.toString() ?: "1-3")
+                                    put("length", frag["length"]?.toString() ?: "100-200")
+                                    put("interval", frag["interval"]?.toString() ?: "10-20")
+                                })
+                            }
+                        })
+                        put("realitySettings", JSONObject().apply {
+                            put("show", false)
+                            put("serverName", "www.microsoft.com")
+                            put("fingerprint", "chrome")
+                            put("publicKey", "2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY")
+                            put("shortId", "2a18498b611d7ac7")
+                            put("spiderX", "/")
+                        })
+                    })
+                })
+                // 2. mKCP UDP
+                put(JSONObject().apply {
+                    put("tag", "kcp")
+                    put("protocol", "vless")
+                    put("settings", JSONObject().apply {
+                        put("vnext", org.json.JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("address", host)
+                                put("port", 8443)
+                                put("users", org.json.JSONArray().apply {
+                                    put(JSONObject().apply {
+                                        put("id", vlessId)
+                                        put("encryption", "none")
+                                    })
+                                })
+                            })
+                        })
+                    })
+                    put("streamSettings", JSONObject().apply {
+                        put("network", "kcp")
+                        put("kcpSettings", JSONObject().apply {
+                            put("mtu", 1350)
+                            put("tti", 20)
+                            put("uplinkCapacity", 100)
+                            put("downlinkCapacity", 100)
+                            put("congestion", false)
+                            put("readBufferSize", 2)
+                            put("writeBufferSize", 2)
+                            put("header", JSONObject().apply { put("type", "srtp") })
+                            put("seed", "ptunnel-kcp-seed")
+                        })
+                    })
+                })
+                // Direct & Block
+                put(JSONObject().apply {
+                    put("tag", "direct")
+                    put("protocol", "freedom")
+                })
+                put(JSONObject().apply {
+                    put("tag", "block")
+                    put("protocol", "blackhole")
+                })
+            })
+            put("routing", JSONObject().apply {
+                put("domainStrategy", "IPIfNonMatch")
+                put("rules", org.json.JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("type", "field")
+                        put("domain", org.json.JSONArray().apply {
+                            put("domain:ir")
+                            put("regexp:.*\\.ir$")
+                        })
+                        put("outboundTag", "direct")
+                    })
+                    put(JSONObject().apply {
+                        put("type", "field")
+                        put("ip", org.json.JSONArray().apply {
+                            put("geoip:ir")
+                            put("127.0.0.0/8")
+                            put("10.0.0.0/8")
+                            put("192.168.0.0/16")
+                        })
+                        put("outboundTag", "direct")
+                    })
+                    put(JSONObject().apply {
+                        put("type", "field")
+                        put("port", "53")
+                        put("network", "udp")
+                        put("outboundTag", "reality")
+                    })
+                    put(JSONObject().apply {
+                        put("type", "field")
+                        put("network", "tcp,udp")
+                        put("outboundTag", "reality")
+                    })
+                })
+            })
+        }
+        return DomesticSplitTunnel.injectDomesticRouting(root.toString())
+    }
+
     private fun applyCandidateToProfile(profileJson: String, candidate: PresetCandidateDto): String {
         return try {
             val root = JSONObject(profileJson)
@@ -954,6 +1257,15 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         if (previous == serverId) return
         _uiState.update { it.copy(selectedServerId = serverId) }
         prefs.edit().putString(KEY_SELECTED_TAG, serverId).apply()
+
+        val server = _uiState.value.servers.find { it.id == serverId }
+        if (server != null) {
+            val matchingLoc = _uiState.value.locations.find { it.host == server.host }
+            if (matchingLoc != null) {
+                _uiState.update { it.copy(selectedLocationId = matchingLoc.id) }
+                prefs.edit().putString(KEY_LOCATION_ID, matchingLoc.id).apply()
+            }
+        }
 
         if (_uiState.value.connectionState == VpnConnectionState.CONNECTED) {
             triggerDisconnect()
@@ -1543,26 +1855,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     companion object {
-        val DEFAULT_LOCATIONS = listOf(
-            VpnLocation(
-                id = "de-1",
-                name = "Germany (Frankfurt)",
-                country = "Germany",
-                host = "86.54.42.124",
-                domain = "86-54-42-124.nip.io",
-                flag = "🇩🇪",
-                apiBase = "https://86-54-42-124.nip.io/v1/"
-            ),
-            VpnLocation(
-                id = "tr-1",
-                name = "Turkey (Istanbul)",
-                country = "Turkey",
-                host = "38.17.64.159",
-                domain = "38-17-64-159.nip.io",
-                flag = "🇹🇷",
-                apiBase = "https://38-17-64-159.nip.io/v1/"
-            )
-        )
+        val DEFAULT_LOCATIONS = com.example.viewmodel.DEFAULT_LOCATIONS
+        val DEFAULT_SERVERS = com.example.viewmodel.DEFAULT_SERVERS
+        val DEFAULT_USER_PROFILE = com.example.viewmodel.DEFAULT_USER_PROFILE
 
         private const val PREFS_NAME = "ptunnel_session"
         private const val KEY_TOKEN = "token"

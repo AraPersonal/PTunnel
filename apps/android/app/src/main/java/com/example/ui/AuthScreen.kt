@@ -104,6 +104,7 @@ fun AuthScreen(
     isLoading: Boolean,
     errorMessage: String?,
     onLoginSubmit: (username: String, password: String) -> Unit,
+    onGuestAccess: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var username by remember { mutableStateOf("") }
@@ -340,6 +341,15 @@ fun AuthScreen(
                 enabled = !isLoading,
                 onClick = submit
             )
+
+            if (onGuestAccess != null) {
+                Spacer(Modifier.height(10.dp))
+                LoginSecondaryButton(
+                    text = "Continue as Guest / اتصال سریع",
+                    enabled = !isLoading,
+                    onClick = onGuestAccess
+                )
+            }
 
             Spacer(Modifier.height(14.dp))
 
@@ -673,6 +683,53 @@ private fun LoginPrimaryButton(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LoginSecondaryButton(
+    text: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(16.dp)
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.98f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
+        label = "secButtonScale"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(shape)
+            .background(LoginSurface.copy(alpha = 0.85f))
+            .border(1.dp, Hairline, shape)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                enabled = enabled,
+                onClick = onClick
+            )
+            .semantics { role = Role.Button }
+            .testTag("auth_guest_button"),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = MintAccent,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = (-0.1).sp,
+            fontFamily = InterFontFamily
+        )
     }
 }
 

@@ -393,7 +393,7 @@ export function createApp(config, deps = {}) {
     res.json({
       locations: [
         {
-          id: 'de-1',
+          id: 'srv_main',
           name: 'Germany (Frankfurt)',
           country: 'Germany',
           host: config.publicHost,
@@ -402,7 +402,16 @@ export function createApp(config, deps = {}) {
           api_base: config.publicBaseUrl,
         },
         {
-          id: 'tr-1',
+          id: 'srv_germany_2',
+          name: 'Germany 2 (Falkenstein)',
+          country: 'Germany',
+          host: '62.144.51.213',
+          domain: '62-144-51-213.nip.io',
+          flag: '🇩🇪',
+          api_base: 'https://62-144-51-213.nip.io/v1/',
+        },
+        {
+          id: 'srv_turkey',
           name: 'Turkey (Istanbul)',
           country: 'Turkey',
           host: '38.17.64.159',
