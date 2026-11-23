@@ -1557,10 +1557,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 id = "tr-1",
                 name = "Turkey (Istanbul)",
                 country = "Turkey",
-                host = "tr.ptunnel.net",
-                domain = "tr.ptunnel.net",
+                host = "38.17.64.159",
+                domain = "38-17-64-159.nip.io",
                 flag = "🇹🇷",
-                apiBase = "https://tr.ptunnel.net/v1/"
+                apiBase = "https://38-17-64-159.nip.io/v1/"
             )
         )
 
