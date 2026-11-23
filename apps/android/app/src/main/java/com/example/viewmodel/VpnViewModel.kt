@@ -112,13 +112,13 @@ val DEFAULT_SERVERS = listOf(
         flagEmoji = "🇩🇪",
         name = "Germany • Reality",
         host = "62.144.51.213",
-        port = 8080,
+        port = 443,
         protocolScheme = "vless",
         credential = "36827084-bbb2-4bca-ab73-d883d22b3d91",
         security = "reality",
         transport = "tcp",
         sni = "www.microsoft.com",
-        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@62.144.51.213:8080?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇩🇪 Germany - Reality",
+        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@62.144.51.213:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇩🇪 Germany - Reality",
         pingMs = 45
     ),
     VpnServer(
@@ -126,13 +126,13 @@ val DEFAULT_SERVERS = listOf(
         flagEmoji = "🇹🇷",
         name = "Turkey • Reality",
         host = "38.17.64.159",
-        port = 8080,
+        port = 443,
         protocolScheme = "vless",
         credential = "36827084-bbb2-4bca-ab73-d883d22b3d91",
         security = "reality",
         transport = "tcp",
         sni = "www.microsoft.com",
-        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@38.17.64.159:8080?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇹🇷 Turkey - Reality",
+        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@38.17.64.159:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=lrYtUcwse7BYCKWn4_8YxcUbIvpRomQUNvRWNHvUyCw&sid=28ed7bd8d59fbb57&type=tcp&flow=xtls-rprx-vision#🇹🇷 Turkey - Reality",
         pingMs = 38
     ),
     VpnServer(
@@ -140,14 +140,28 @@ val DEFAULT_SERVERS = listOf(
         flagEmoji = "🇩🇪",
         name = "Germany 1 • Reality",
         host = "86.54.42.124",
-        port = 8080,
+        port = 443,
         protocolScheme = "vless",
         credential = "36827084-bbb2-4bca-ab73-d883d22b3d91",
         security = "reality",
         transport = "tcp",
         sni = "www.microsoft.com",
-        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@86.54.42.124:8080?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇩🇪 Germany 1 - Reality",
+        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@86.54.42.124:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇩🇪 Germany 1 - Reality",
         pingMs = 55
+    ),
+    VpnServer(
+        id = "srv_turkey_trojan",
+        flagEmoji = "🇹🇷",
+        name = "Turkey • Trojan",
+        host = "38.17.64.159",
+        port = 2053,
+        protocolScheme = "trojan",
+        credential = "8e40c7e44e44c73c89c61f41ae2e5f0e",
+        security = "tls",
+        transport = "tcp",
+        sni = "38-17-64-159.nip.io",
+        rawUri = "trojan://8e40c7e44e44c73c89c61f41ae2e5f0e@38.17.64.159:2053?security=tls&sni=38-17-64-159.nip.io#🇹🇷 Turkey - Trojan",
+        pingMs = 40
     ),
     VpnServer(
         id = "srv_germany_2_kcp",
@@ -736,11 +750,15 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
             val live = fetched.getOrNull() ?: buildFallbackConfig(target, state.userProfile, discoveryResult?.selectedCandidate)
             syncLabelToServedEndpoint()
-            val tuned = if (discoveryResult != null) {
-                applyCandidateToProfile(live, discoveryResult.selectedCandidate)
-            } else {
-                DomesticSplitTunnel.injectDomesticRouting(live)
-            }
+            val candidateToUse = discoveryResult?.selectedCandidate ?: PresetCandidateDto(
+                priority = 1,
+                configId = "default-reality-opt",
+                status = "seed",
+                engine = "xray",
+                transport = "reality",
+                params = mapOf("port" to 443)
+            )
+            val tuned = applyCandidateToProfile(live, candidateToUse)
             // Keep the last profile that worked the server's verification.
             prefs.edit().putString(KEY_CACHED_CONFIG, tuned).apply()
             if (discoveryResult != null) {
@@ -947,12 +965,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         candidate: PresetCandidateDto? = null
     ): String {
         val host = location.host.ifBlank { "62.144.51.213" }
-        val realityPort = (candidate?.params?.get("port") as? Number)?.toInt() ?: 8080
+        val realityPort = (candidate?.params?.get("port") as? Number)?.toInt() ?: 443
         val vlessId = "36827084-bbb2-4bca-ab73-d883d22b3d91"
-        val realityPubKey = if (host == "86.54.42.124" || host == "38.17.64.159") {
-            "2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY"
-        } else {
-            "tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw"
+        val (realityPubKey, realityShortId) = when (host) {
+            "38.17.64.159" -> Pair("lrYtUcwse7BYCKWn4_8YxcUbIvpRomQUNvRWNHvUyCw", "28ed7bd8d59fbb57")
+            "86.54.42.124" -> Pair("2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY", "2a18498b611d7ac7")
+            else -> Pair("tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw", "2a18498b611d7ac7")
         }
 
         val root = JSONObject().apply {
@@ -979,7 +997,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     put("protocol", "tun")
                     put("settings", JSONObject().apply {
                         put("name", "xray0")
-                        put("MTU", 1420)
+                        put("MTU", 1380)
                         put("userLevel", 8)
                     })
                     put("sniffing", JSONObject().apply {
@@ -1028,21 +1046,23 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                             put("tcpUserTimeout", 30000)
                             put("tcpKeepAliveIdle", 30)
                             put("tcpKeepAliveInterval", 15)
-                            val frag = candidate?.params?.get("fragment") as? Map<*, *>
-                            if (frag != null) {
-                                put("fragment", JSONObject().apply {
-                                    put("packets", frag["packets"]?.toString() ?: "1-3")
-                                    put("length", frag["length"]?.toString() ?: "100-200")
-                                    put("interval", frag["interval"]?.toString() ?: "1-2")
-                                })
-                            }
+                            val frag = (candidate?.params?.get("fragment") as? Map<*, *>) ?: mapOf(
+                                "packets" to "1-3",
+                                "length" to "10-30",
+                                "interval" to "10-20"
+                            )
+                            put("fragment", JSONObject().apply {
+                                put("packets", frag["packets"]?.toString() ?: "1-3")
+                                put("length", frag["length"]?.toString() ?: "10-30")
+                                put("interval", frag["interval"]?.toString() ?: "10-20")
+                            })
                         })
                         put("realitySettings", JSONObject().apply {
                             put("show", false)
                             put("serverName", "www.microsoft.com")
                             put("fingerprint", "chrome")
                             put("publicKey", realityPubKey)
-                            put("shortId", "2a18498b611d7ac7")
+                            put("shortId", realityShortId)
                             put("spiderX", "/")
                         })
                     })
@@ -1073,7 +1093,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                             put("serverName", "www.microsoft.com")
                             put("fingerprint", "chrome")
                             put("publicKey", realityPubKey)
-                            put("shortId", "2a18498b611d7ac7")
+                            put("shortId", realityShortId)
                             put("spiderX", "/")
                         })
                     })
@@ -1197,11 +1217,32 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 if (primary != null) {
-                    val portNum = (candidate.params["port"] as? Number)?.toInt() ?: 8080
-                    if (portNum > 0) {
-                        val settings = primary.optJSONObject("settings")
-                        val vnext = settings?.optJSONArray("vnext")
-                        vnext?.optJSONObject(0)?.put("port", portNum)
+                    val candidatePort = (candidate.params["port"] as? Number)?.toInt()
+                    val portNum = if (candidatePort != null && candidatePort > 0 && candidatePort != 8080) candidatePort else 443
+                    val settings = primary.optJSONObject("settings")
+                    val vnext = settings?.optJSONArray("vnext")
+                    val serverObj = vnext?.optJSONObject(0)
+                    if (serverObj != null) {
+                        serverObj.put("port", portNum)
+                        val host = serverObj.optString("address")
+                        val streamSettings = primary.optJSONObject("streamSettings")
+                        val realitySettings = streamSettings?.optJSONObject("realitySettings")
+                        if (realitySettings != null) {
+                            when (host) {
+                                "38.17.64.159" -> {
+                                    realitySettings.put("publicKey", "lrYtUcwse7BYCKWn4_8YxcUbIvpRomQUNvRWNHvUyCw")
+                                    realitySettings.put("shortId", "28ed7bd8d59fbb57")
+                                }
+                                "86.54.42.124" -> {
+                                    realitySettings.put("publicKey", "2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY")
+                                    realitySettings.put("shortId", "2a18498b611d7ac7")
+                                }
+                                "62.144.51.213" -> {
+                                    realitySettings.put("publicKey", "tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw")
+                                    realitySettings.put("shortId", "2a18498b611d7ac7")
+                                }
+                            }
+                        }
                     }
 
                     val streamSettings = primary.optJSONObject("streamSettings") ?: JSONObject().also { primary.put("streamSettings", it) }
@@ -1211,14 +1252,31 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     sockopt.put("tcpKeepAliveIdle", 30)
                     sockopt.put("tcpKeepAliveInterval", 15)
 
-                    val frag = candidate.params["fragment"] as? Map<*, *>
-                    if (frag != null) {
+                    val isReality = primary.optString("tag").contains("reality", ignoreCase = true) ||
+                                    streamSettings.optString("security").equals("reality", ignoreCase = true)
+                    if (isReality) {
+                        val frag = (candidate.params["fragment"] as? Map<*, *>) ?: mapOf(
+                            "packets" to "1-3",
+                            "length" to "10-30",
+                            "interval" to "10-20"
+                        )
                         val fragObj = JSONObject().apply {
                             put("packets", frag["packets"]?.toString() ?: "1-3")
-                            put("length", frag["length"]?.toString() ?: "100-200")
-                            put("interval", frag["interval"]?.toString() ?: "1-2")
+                            put("length", frag["length"]?.toString() ?: "10-30")
+                            put("interval", frag["interval"]?.toString() ?: "10-20")
                         }
                         sockopt.put("fragment", fragObj)
+                    }
+                }
+            }
+
+            // Optimize TUN inbound MTU to 1380
+            val inbounds = root.optJSONArray("inbounds")
+            if (inbounds != null) {
+                for (i in 0 until inbounds.length()) {
+                    val ib = inbounds.optJSONObject(i) ?: continue
+                    if (ib.optString("protocol") == "tun") {
+                        ib.optJSONObject("settings")?.put("MTU", 1380)
                     }
                 }
             }
@@ -1237,7 +1295,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     val r = routingRules.optJSONObject(i) ?: continue
                     if (r.optString("balancerTag") == "multi") {
                         r.remove("balancerTag")
-                        r.put("outboundTag", candidate.transport)
+                        r.put("outboundTag", candidate.transport.ifBlank { "reality" })
                     }
                 }
             }

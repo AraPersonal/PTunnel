@@ -93,9 +93,9 @@ data class BackendEndpointConfig(
      * no DNS to work.
      */
     val apiBaseUrl: String = "https://62-144-51-213.nip.io/v1/",
-    val defaultPort: Int = 8080,
+    val defaultPort: Int = 443,
     val localSocksPort: Int = 10808,
-    val tunnelMtu: Int = 1500,
+    val tunnelMtu: Int = 1380,
     val primaryDns: String = "1.1.1.1"
 )
 

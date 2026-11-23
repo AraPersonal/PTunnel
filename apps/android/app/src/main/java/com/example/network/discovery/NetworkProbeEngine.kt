@@ -373,23 +373,21 @@ class NetworkProbeEngine(
 
         // 1. Fragment variations
         val fragmentOptions = listOf(
-            mapOf("packets" to "1-3", "length" to "10-50", "interval" to "5-10"),
-            mapOf("packets" to "1-3", "length" to "100-200", "interval" to "10-20"),
-            mapOf("packets" to "1-3", "length" to "300-600", "interval" to "1-5")
+            mapOf("packets" to "1-3", "length" to "10-30", "interval" to "10-20"),
+            mapOf("packets" to "1-3", "length" to "30-60", "interval" to "5-15"),
+            mapOf("packets" to "1-3", "length" to "100-200", "interval" to "1-5")
         )
         for (frag in fragmentOptions) {
-            for (p in listOf(8080, 443)) {
-                list.add(
-                    PresetCandidateDto(
-                        priority = if (p == 8080) 4 else 5,
-                        configId = "matrix-frag-${p}-${frag["length"]}",
-                        status = "candidate",
-                        engine = "xray",
-                        transport = "reality",
-                        params = mapOf("port" to p, "fragment" to frag, "mtu" to 1380)
-                    )
+            list.add(
+                PresetCandidateDto(
+                    priority = 5,
+                    configId = "matrix-frag-443-${frag["length"]}",
+                    status = "candidate",
+                    engine = "xray",
+                    transport = "reality",
+                    params = mapOf("port" to 443, "fragment" to frag, "mtu" to 1380)
                 )
-            }
+            )
         }
 
         // 2. Port hopping & Hysteria 2 options
@@ -427,7 +425,7 @@ class NetworkProbeEngine(
 
     private fun extractCandidatePort(candidate: PresetCandidateDto, baseConfig: BackendEndpointConfig): Int {
         val portNum = (candidate.params["port"] as? Number)?.toInt()
-        return if (portNum != null && portNum > 0) portNum else 8080
+        return if (portNum != null && portNum > 0 && portNum != 8080) portNum else 443
     }
 
     private fun extractHostFromUrl(url: String): String {
