@@ -114,28 +114,31 @@ class NetworkProbeEngine(
             }
         }
 
+        val origin = baseConfig.apiBaseUrl.substringBefore("/v1").trimEnd('/')
+        val probeUrl = "$origin/dl"
+
         // Step 3: Check Local Cache (if not forcing rescan)
         if (!forceRescan) {
             val cached = getCachedProfile(activeIdentity.networkKey)
             if (cached != null) {
                 Log.i(TAG, "Using locally cached validated candidate for ${activeIdentity.networkKey}")
                 onProgress?.invoke("scanning", "Found local profile for ${activeIdentity.networkKey}")
-                val probeUrl = "${baseConfig.apiBaseUrl}dl"
-                // Fast-lane verification: 1 chunk (512KB) for cached profiles to minimize TTFB
-                val check = measureChunkedThroughput(probeUrl, CHUNK_SIZE_BYTES, 1)
-                if (check.verdict == "ok") {
+                val host = extractCandidateHost(cached.candidate, baseConfig)
+                val port = extractCandidatePort(cached.candidate, baseConfig)
+                val latency = fastTcpProbe(host, port, FAST_PROBE_TIMEOUT_MS)
+                if (latency >= 0) {
                     return@withContext Result.success(
                         DiscoveryResult(
                             selectedCandidate = cached.candidate,
                             configJson = cached.configJson,
                             identity = activeIdentity,
-                            latencyMs = check.latencyMs,
-                            throughputKBps = check.throughputKBps,
+                            latencyMs = latency,
+                            throughputKBps = cached.throughputKBps,
                             phase = 0
                         )
                     )
                 }
-                Log.w(TAG, "Cached profile failed throughput check, advancing to Phase 1")
+                Log.w(TAG, "Cached profile failed TCP check, advancing to Phase 1")
             }
         }
 
@@ -151,7 +154,9 @@ class NetworkProbeEngine(
         )
 
         val candidates = presetsResult.getOrNull()?.candidates.orEmpty()
-        val probeUrl = "${baseConfig.apiBaseUrl}dl"
+        var bestPreset: PresetCandidateDto? = null
+        var bestPresetLatency = -1L
+        var bestPresetThroughput = 0.0
 
         for (candidate in candidates) {
             onProgress?.invoke("scanning", "Testing preset: ${candidate.engine}/${candidate.transport} (priority ${candidate.priority})...")
@@ -168,6 +173,12 @@ class NetworkProbeEngine(
             // Gate 2: Chunked throughput gate (2MB total)
             val chunked = measureChunkedThroughput(probeUrl, CHUNK_SIZE_BYTES, SCAN_CHUNKS_COUNT)
             Log.i(TAG, "Candidate ${candidate.configId} throughput: ${chunked.throughputKBps} KB/s (latency: ${chunked.latencyMs}ms)")
+
+            if (bestPreset == null || chunked.throughputKBps > bestPresetThroughput) {
+                bestPreset = candidate
+                bestPresetLatency = latency
+                bestPresetThroughput = chunked.throughputKBps
+            }
 
             if (chunked.verdict == "ok" && chunked.throughputKBps >= THROUGHPUT_GATE_KBPS) {
                 Log.i(TAG, "Phase 1 success! Candidate ${candidate.configId} qualified with ${chunked.throughputKBps} KB/s")
@@ -186,6 +197,24 @@ class NetworkProbeEngine(
                     )
                 )
             }
+        }
+
+        // If a server preset answered TCP probe, use it immediately
+        if (bestPreset != null) {
+            Log.i(TAG, "Using TCP-validated preset ${bestPreset.configId} (latency: ${bestPresetLatency}ms)")
+            val config = buildCandidateConfigJson(bestPreset, baseConfig)
+            val injected = DomesticSplitTunnel.injectDomesticRouting(config)
+            cacheProfile(activeIdentity.networkKey, bestPreset, injected, bestPresetThroughput)
+            return@withContext Result.success(
+                DiscoveryResult(
+                    selectedCandidate = bestPreset,
+                    configJson = injected,
+                    identity = activeIdentity,
+                    latencyMs = bestPresetLatency,
+                    throughputKBps = bestPresetThroughput,
+                    phase = 1
+                )
+            )
         }
 
         // Step 5: Phase 2 — Exploratory Matrix Grid Search

@@ -1122,7 +1122,27 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             val root = JSONObject(profileJson)
             val outbounds = root.optJSONArray("outbounds")
             if (outbounds != null && outbounds.length() > 0) {
-                val primary = outbounds.optJSONObject(0)
+                var chosenIndex = -1
+                for (i in 0 until outbounds.length()) {
+                    val ob = outbounds.optJSONObject(i)
+                    if (ob?.optString("tag").equals(candidate.transport, ignoreCase = true)) {
+                        chosenIndex = i
+                        break
+                    }
+                }
+                val primary = if (chosenIndex >= 0) {
+                    val chosen = outbounds.remove(chosenIndex) as JSONObject
+                    val newOutbounds = org.json.JSONArray()
+                    newOutbounds.put(chosen)
+                    for (i in 0 until outbounds.length()) {
+                        newOutbounds.put(outbounds.optJSONObject(i))
+                    }
+                    root.put("outbounds", newOutbounds)
+                    chosen
+                } else {
+                    outbounds.optJSONObject(0)
+                }
+
                 if (primary != null) {
                     val portNum = (candidate.params["port"] as? Number)?.toInt()
                     if (portNum != null && portNum > 0) {
