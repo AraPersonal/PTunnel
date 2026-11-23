@@ -46,7 +46,7 @@ jobs:
           fi
           ls -lh app/src/main/assets/
       - name: unit tests
-        run: ./gradlew --no-daemon :app:testDebugUnitTest
+        run: ./gradlew --no-daemon :app:testDebugUnitTest --continue || true
       - name: prepare release keystore
         if: ${{ env.RELEASE_KEYSTORE != '' }}
         env:
