@@ -23,7 +23,23 @@ class XrayTunnelCore(
     init {
         try {
             Seq.setContext(context.applicationContext)
-            val assetPath = context.getDir("assets", Context.MODE_PRIVATE).absolutePath
+            val assetDir = context.getDir("assets", Context.MODE_PRIVATE)
+            listOf("geoip.dat", "geosite.dat").forEach { fileName ->
+                try {
+                    val destFile = java.io.File(assetDir, fileName)
+                    if (!destFile.exists() || destFile.length() == 0L) {
+                        context.assets.open(fileName).use { input ->
+                            java.io.FileOutputStream(destFile).use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        Log.i("XrayTunnelCore", "Extracted $fileName (${destFile.length()} bytes)")
+                    }
+                } catch (e: Exception) {
+                    Log.w("XrayTunnelCore", "Could not extract $fileName: ${e.message}")
+                }
+            }
+            val assetPath = assetDir.absolutePath
             val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "ptunnel"
             val base64Key = Base64.encodeToString(
                 androidId.toByteArray(Charsets.UTF_8).copyOf(32),

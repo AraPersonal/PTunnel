@@ -229,7 +229,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             ?.let { runCatching { LocationMode.valueOf(it) }.getOrNull() }
             ?: LocationMode.AUTO
         val savedLocationId = prefs.getString(KEY_LOCATION_ID, null)
-            ?.takeIf { id -> DEFAULT_LOCATIONS.any { it.id == id } }
+            ?.takeIf { id -> DEFAULT_LOCATIONS.any { it.id == id } && id != "srv_main" }
             ?: DEFAULT_LOCATIONS.first().id
 
         val savedServerId = prefs.getString(KEY_SELECTED_TAG, null)
@@ -361,21 +361,31 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun restoreSession() {
+        val cachedConfig = prefs.getString(KEY_CACHED_CONFIG, null)
+        if (cachedConfig?.contains("86.54.42.124") == true || cachedConfig?.contains("ptu.beauty") == true) {
+            prefs.edit().remove(KEY_CACHED_CONFIG).apply()
+        }
+
         val token = prefs.getString(KEY_TOKEN, null).orEmpty()
         val username = prefs.getString(KEY_USERNAME, null).orEmpty()
-        if (token.isBlank()) {
+        if (token.isBlank() || !token.startsWith("eyJ") || username != "ara") {
             persistSession(DEFAULT_USER_PROFILE)
+            prefs.edit().remove(KEY_CACHED_CONFIG).apply()
             val selected = prefs.getString(KEY_SELECTED_TAG, null)
                 ?.takeIf { tag -> DEFAULT_SERVERS.any { it.id == tag } }
                 ?: DEFAULT_SERVERS.first().id
             _uiState.update {
                 it.copy(
                     isAuthenticated = true,
+                    isAuthLoading = false,
+                    authErrorMessage = null,
                     userProfile = DEFAULT_USER_PROFILE,
                     servers = DEFAULT_SERVERS,
-                    selectedServerId = selected
+                    selectedServerId = selected,
+                    selectedLocationId = DEFAULT_LOCATIONS.first().id
                 )
             }
+            refreshLocations()
             return
         }
 
@@ -1083,9 +1093,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     put(JSONObject().apply {
                         put("type", "field")
                         put("ip", org.json.JSONArray().apply {
-                            put("geoip:ir")
                             put("127.0.0.0/8")
                             put("10.0.0.0/8")
+                            put("172.16.0.0/12")
                             put("192.168.0.0/16")
                         })
                         put("outboundTag", "direct")

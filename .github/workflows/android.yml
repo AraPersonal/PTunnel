@@ -35,6 +35,16 @@ jobs:
           curl -fSLk --retry 3 --retry-delay 2 -o app/libs/libv2ray.aar https://86-54-42-124.nip.io/dl/libv2ray.aar || \
           curl -fSLk --retry 3 --retry-delay 2 -o app/libs/libv2ray.aar https://38-17-64-159.nip.io/dl/libv2ray.aar
           ls -lh app/libs/libv2ray.aar
+      - name: ensure xray assets
+        run: |
+          mkdir -p app/src/main/assets
+          if [ ! -f app/src/main/assets/geoip.dat ]; then
+            curl -fSLk --retry 3 -o app/src/main/assets/geoip.dat https://github.com/v2fly/geoip/releases/latest/download/geoip.dat
+          fi
+          if [ ! -f app/src/main/assets/geosite.dat ]; then
+            curl -fSLk --retry 3 -o app/src/main/assets/geosite.dat https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat
+          fi
+          ls -lh app/src/main/assets/
       - name: unit tests
         run: ./gradlew --no-daemon :app:testDebugUnitTest
       - name: prepare release keystore

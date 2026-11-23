@@ -126,13 +126,24 @@ object DomesticSplitTunnel {
 
             val domesticIpRule = JSONObject().apply {
                 put("type", "field")
-                put("ip", JSONArray().apply {
-                    put("geoip:ir")
-                    put("geoip:private")
+                val ipList = JSONArray().apply {
                     put("127.0.0.0/8")
                     put("10.0.0.0/8")
+                    put("172.16.0.0/12")
                     put("192.168.0.0/16")
-                })
+                    put("100.64.0.0/10")
+                    put("fc00::/7")
+                    put("fe80::/10")
+                }
+                val hasGeoip = try {
+                    java.io.File("/data/user/0/com.ptunnel/app_assets/geoip.dat").exists() ||
+                    java.io.File("/data/data/com.ptunnel/app_assets/geoip.dat").exists()
+                } catch (_: Throwable) { false }
+                if (hasGeoip) {
+                    ipList.put("geoip:ir")
+                    ipList.put("geoip:private")
+                }
+                put("ip", ipList)
                 put("outboundTag", "direct")
             }
 
