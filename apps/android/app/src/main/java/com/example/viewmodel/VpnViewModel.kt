@@ -64,36 +64,36 @@ import org.json.JSONObject
 import java.util.Locale
 
 val DEFAULT_USER_PROFILE = UserProfile(
-    uid = "usr_ptunnel_client",
-    displayName = "PTunnel Client",
-    email = "client@ptunnel.net",
-    authToken = "ptunnel_client_session_token",
-    planTitle = "Pro 50GB (Active)",
-    usedBytes = 0L,
-    totalBytes = 53687091200L,
-    expiryDaysRemaining = 30,
+    uid = "usr_8913155d12e8",
+    displayName = "Ara",
+    email = "ara@ptunnel.net",
+    authToken = "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ0eXAiOiAidXNlciIsICJ2ZXIiOiAyLCAidXNlcm5hbWUiOiAiYXJhIiwgInN1YiI6ICJ1c3JfODkxMzE1NWQxMmU4IiwgImlzcyI6ICJwdHVubmVsIiwgImF1ZCI6ICJ1c2VyIiwgImV4cCI6IDE4MjY5Nzk0NDJ9.PGNlkljtgjAyvkvHuLTlc41Ht0zR6Rk3_7GuM8yuQow",
+    planTitle = "VIP 20 GB",
+    usedBytes = 5373912436L,
+    totalBytes = 21474836480L,
+    expiryDaysRemaining = 365,
     status = "active",
-    username = "client@ptunnel.net"
+    username = "ara"
 )
 
 val DEFAULT_LOCATIONS = listOf(
     VpnLocation(
-        id = "srv_main",
-        name = "Germany (Frankfurt)",
-        country = "Germany",
-        host = "86.54.42.124",
-        domain = "86-54-42-124.nip.io",
-        flag = "🇩🇪",
-        apiBase = "https://86-54-42-124.nip.io/v1/"
-    ),
-    VpnLocation(
         id = "srv_germany_2",
-        name = "Germany 2 (Falkenstein)",
+        name = "Germany (Falkenstein)",
         country = "Germany",
         host = "62.144.51.213",
         domain = "62-144-51-213.nip.io",
         flag = "🇩🇪",
         apiBase = "https://62-144-51-213.nip.io/v1/"
+    ),
+    VpnLocation(
+        id = "srv_main",
+        name = "Germany 1 (Frankfurt)",
+        country = "Germany",
+        host = "86.54.42.124",
+        domain = "86-54-42-124.nip.io",
+        flag = "🇩🇪",
+        apiBase = "https://86-54-42-124.nip.io/v1/"
     ),
     VpnLocation(
         id = "srv_turkey",
@@ -108,88 +108,60 @@ val DEFAULT_LOCATIONS = listOf(
 
 val DEFAULT_SERVERS = listOf(
     VpnServer(
-        id = "srv_main_reality",
-        flagEmoji = "🇩🇪",
-        name = "Germany - Reality (Fastest)",
-        host = "86.54.42.124",
-        port = 8080,
-        protocolScheme = "vless",
-        credential = "2a18498b-611d-7ac7-abcd-000000000001",
-        security = "reality",
-        transport = "tcp",
-        sni = "www.microsoft.com",
-        rawUri = "vless://2a18498b-611d-7ac7-abcd-000000000001@86.54.42.124:8080?security=reality&encryption=none&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&headerType=none&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni=www.microsoft.com&sid=2a18498b611d7ac7#🇩🇪 Germany - Reality",
-        pingMs = 45
-    ),
-    VpnServer(
         id = "srv_germany_2_reality",
         flagEmoji = "🇩🇪",
-        name = "Germany 2 - Reality",
+        name = "Germany • Reality",
         host = "62.144.51.213",
-        port = 8080,
+        port = 443,
         protocolScheme = "vless",
-        credential = "2a18498b-611d-7ac7-abcd-000000000001",
+        credential = "36827084-bbb2-4bca-ab73-d883d22b3d91",
         security = "reality",
         transport = "tcp",
         sni = "www.microsoft.com",
-        rawUri = "vless://2a18498b-611d-7ac7-abcd-000000000001@62.144.51.213:8080?security=reality&encryption=none&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&headerType=none&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni=www.microsoft.com&sid=2a18498b611d7ac7#🇩🇪 Germany 2 - Reality",
-        pingMs = 52
-    ),
-    VpnServer(
-        id = "srv_turkey_reality",
-        flagEmoji = "🇹🇷",
-        name = "Turkey - Reality (Low Latency)",
-        host = "38.17.64.159",
-        port = 8080,
-        protocolScheme = "vless",
-        credential = "2a18498b-611d-7ac7-abcd-000000000001",
-        security = "reality",
-        transport = "tcp",
-        sni = "www.microsoft.com",
-        rawUri = "vless://2a18498b-611d-7ac7-abcd-000000000001@38.17.64.159:8080?security=reality&encryption=none&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&headerType=none&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni=www.microsoft.com&sid=2a18498b611d7ac7#🇹🇷 Turkey - Reality",
-        pingMs = 38
-    ),
-    VpnServer(
-        id = "srv_main_kcp",
-        flagEmoji = "🇩🇪",
-        name = "Germany - mKCP (Anti-Filter)",
-        host = "86.54.42.124",
-        port = 8443,
-        protocolScheme = "vless",
-        credential = "2a18498b-611d-7ac7-abcd-000000000001",
-        security = "none",
-        transport = "kcp",
-        sni = "86-54-42-124.nip.io",
-        rawUri = "vless://2a18498b-611d-7ac7-abcd-000000000001@86.54.42.124:8443?security=none&encryption=none&headerType=srtp&type=kcp&seed=ptunnel-kcp-seed#🇩🇪 Germany - mKCP",
-        pingMs = 58
+        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@62.144.51.213:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇩🇪 Germany - Reality",
+        pingMs = 45
     ),
     VpnServer(
         id = "srv_germany_2_kcp",
         flagEmoji = "🇩🇪",
-        name = "Germany 2 - mKCP",
+        name = "Germany • mKCP",
         host = "62.144.51.213",
         port = 8443,
         protocolScheme = "vless",
-        credential = "2a18498b-611d-7ac7-abcd-000000000001",
-        security = "none",
+        credential = "36827084-bbb2-4bca-ab73-d883d22b3d91",
+        security = "tls",
         transport = "kcp",
         sni = "62-144-51-213.nip.io",
-        rawUri = "vless://2a18498b-611d-7ac7-abcd-000000000001@62.144.51.213:8443?security=none&encryption=none&headerType=srtp&type=kcp&seed=ptunnel-kcp-seed#🇩🇪 Germany 2 - mKCP",
-        pingMs = 64
+        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@62.144.51.213:8443?encryption=none&security=tls&sni=62-144-51-213.nip.io&type=kcp&headerType=salamander#🇩🇪 Germany - mKCP",
+        pingMs = 52
     ),
     VpnServer(
-        id = "srv_turkey_kcp",
-        flagEmoji = "🇹🇷",
-        name = "Turkey - mKCP",
-        host = "38.17.64.159",
-        port = 8443,
+        id = "srv_main_reality",
+        flagEmoji = "🇩🇪",
+        name = "Germany 1 • Reality",
+        host = "86.54.42.124",
+        port = 443,
         protocolScheme = "vless",
-        credential = "2a18498b-611d-7ac7-abcd-000000000001",
-        security = "none",
-        transport = "kcp",
-        sni = "38-17-64-159.nip.io",
-        rawUri = "vless://2a18498b-611d-7ac7-abcd-000000000001@38.17.64.159:8443?security=none&encryption=none&headerType=srtp&type=kcp&seed=ptunnel-kcp-seed#🇹🇷 Turkey - mKCP",
-        pingMs = 48
+        credential = "36827084-bbb2-4bca-ab73-d883d22b3d91",
+        security = "reality",
+        transport = "tcp",
+        sni = "www.microsoft.com",
+        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@86.54.42.124:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇩🇪 Germany 1 - Reality",
+        pingMs = 55
+    ),
+    VpnServer(
+        id = "srv_turkey_reality",
+        flagEmoji = "🇹🇷",
+        name = "Turkey • Reality",
+        host = "38.17.64.159",
+        port = 443,
+        protocolScheme = "vless",
+        credential = "36827084-bbb2-4bca-ab73-d883d22b3d91",
+        security = "reality",
+        transport = "tcp",
+        sni = "www.microsoft.com",
+        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@38.17.64.159:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇹🇷 Turkey - Reality",
+        pingMs = 38
     )
 )
 
@@ -964,9 +936,14 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         userProfile: UserProfile,
         candidate: PresetCandidateDto? = null
     ): String {
-        val host = location.host.ifBlank { "86.54.42.124" }
-        val realityPort = (candidate?.params?.get("port") as? Number)?.toInt() ?: 8080
-        val vlessId = userProfile.uid.ifBlank { "2a18498b-611d-7ac7-abcd-000000000001" }
+        val host = location.host.ifBlank { "62.144.51.213" }
+        val realityPort = (candidate?.params?.get("port") as? Number)?.toInt() ?: 443
+        val vlessId = "36827084-bbb2-4bca-ab73-d883d22b3d91"
+        val realityPubKey = if (host == "86.54.42.124" || host == "38.17.64.159") {
+            "2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY"
+        } else {
+            "tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw"
+        }
 
         val root = JSONObject().apply {
             put("log", JSONObject().apply { put("loglevel", "warning") })
@@ -977,6 +954,23 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 })
             })
             put("inbounds", org.json.JSONArray().apply {
+                put(JSONObject().apply {
+                    put("tag", "tun")
+                    put("protocol", "tun")
+                    put("settings", JSONObject().apply {
+                        put("name", "xray0")
+                        put("MTU", 1420)
+                        put("userLevel", 8)
+                    })
+                    put("sniffing", JSONObject().apply {
+                        put("enabled", true)
+                        put("destOverride", org.json.JSONArray().apply {
+                            put("http")
+                            put("tls")
+                            put("quic")
+                        })
+                    })
+                })
                 put(JSONObject().apply {
                     put("tag", "loopback-proxy")
                     put("listen", "127.0.0.1")
@@ -1026,7 +1020,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                             put("show", false)
                             put("serverName", "www.microsoft.com")
                             put("fingerprint", "chrome")
-                            put("publicKey", "2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY")
+                            put("publicKey", realityPubKey)
                             put("shortId", "2a18498b611d7ac7")
                             put("spiderX", "/")
                         })

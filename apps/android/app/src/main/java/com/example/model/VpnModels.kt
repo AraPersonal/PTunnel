@@ -92,7 +92,7 @@ data class BackendEndpointConfig(
      * fail for the users who need them most. This name is pinned to the server address, so it needs
      * no DNS to work.
      */
-    val apiBaseUrl: String = "https://86-54-42-124.nip.io/v1/",
+    val apiBaseUrl: String = "https://62-144-51-213.nip.io/v1/",
     val defaultPort: Int = 443,
     val localSocksPort: Int = 10808,
     val tunnelMtu: Int = 1500,
