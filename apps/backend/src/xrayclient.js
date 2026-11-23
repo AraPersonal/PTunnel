@@ -121,10 +121,9 @@ function hostnameOf(url) {
  */
 const TUNNEL_RESOLVERS = ['1.1.1.1', '1.0.0.1', '8.8.8.8', '8.8.4.4'];
 
-function dnsRules(outboundForQueries) {
+function dnsRules() {
   return [
-    { type: 'field', network: 'udp', port: '53', ip: TUNNEL_RESOLVERS, ...outboundForQueries },
-    { type: 'field', network: 'udp', port: '53', outboundTag: 'block' },
+    { type: 'field', inboundTag: ['tun'], network: 'udp,tcp', port: '53', outboundTag: 'dns-out' },
   ];
 }
 
@@ -395,6 +394,10 @@ export function buildXrayClientConfig(user, tag) {
     outbounds: [
       primary,
       {
+        tag: 'dns-out',
+        protocol: 'dns',
+      },
+      {
         tag: 'direct',
         protocol: 'freedom',
         streamSettings: {
@@ -415,7 +418,7 @@ export function buildXrayClientConfig(user, tag) {
         // the profile served to the fleet today for tag=cdn carries outbounds [cdn, direct, block] and a
         // rule sending UDP/53 for 1.1.1.1 / 1.0.0.1 / 8.8.8.8 / 8.8.4.4 to "proxy". Nothing answers that,
         // so the very phones that fell back to this profile had nowhere to send their lookups.
-        ...dnsRules({ outboundTag: primary.tag }),
+        ...dnsRules(),
         { type: 'field', ip: PRIVATE_IPS, outboundTag: 'block' },
       ],
     },

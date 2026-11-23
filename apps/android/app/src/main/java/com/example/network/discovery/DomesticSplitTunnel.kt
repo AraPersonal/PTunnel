@@ -87,11 +87,15 @@ object DomesticSplitTunnel {
             // Ensure outbound "direct" exists
             val outbounds = root.optJSONArray("outbounds") ?: JSONArray().also { root.put("outbounds", it) }
             var hasDirect = false
+            var hasDnsOut = false
             for (i in 0 until outbounds.length()) {
                 val outbound = outbounds.optJSONObject(i)
-                if (outbound?.optString("tag") == "direct") {
+                val tag = outbound?.optString("tag")
+                if (tag == "direct") {
                     hasDirect = true
-                    break
+                }
+                if (tag == "dns-out") {
+                    hasDnsOut = true
                 }
             }
             if (!hasDirect) {
@@ -100,6 +104,23 @@ object DomesticSplitTunnel {
                     put("protocol", "freedom")
                 }
                 outbounds.put(directOutbound)
+            }
+            if (!hasDnsOut) {
+                val dnsOutbound = JSONObject().apply {
+                    put("tag", "dns-out")
+                    put("protocol", "dns")
+                }
+                outbounds.put(dnsOutbound)
+            }
+
+            // Ensure DNS config exists with robust DoH resolvers
+            val dnsObj = root.optJSONObject("dns") ?: JSONObject().also { root.put("dns", it) }
+            dnsObj.put("queryStrategy", "UseIPv4")
+            if (!dnsObj.has("servers") || dnsObj.optJSONArray("servers")?.length() == 0) {
+                dnsObj.put("servers", JSONArray().apply {
+                    put("https://1.1.1.1/dns-query")
+                    put("https://8.8.8.8/dns-query")
+                })
             }
 
             // Routing configuration
@@ -145,18 +166,27 @@ object DomesticSplitTunnel {
                 put("outboundTag", "direct")
             }
 
-            // Prepend domestic rules so they take priority
+            val dnsRule = JSONObject().apply {
+                put("type", "field")
+                put("inboundTag", JSONArray().apply { put("tun") })
+                put("port", "53")
+                put("network", "udp,tcp")
+                put("outboundTag", "dns-out")
+            }
+
+            // Prepend domestic rules and DNS hijack rule so they take priority
             val newRules = JSONArray()
             newRules.put(domesticDomainRule)
             newRules.put(domesticIpRule)
+            newRules.put(dnsRule)
             for (i in 0 until rules.length()) {
                 val existing = rules.optJSONObject(i) ?: continue
-                // Don't duplicate if already exists
                 val outboundTag = existing.optString("outboundTag")
                 val isOldDirect = outboundTag == "direct" && existing.optJSONArray("ip")?.let { arr ->
                     (0 until arr.length()).any { arr.optString(it) == "geoip:ir" }
                 } == true
-                if (!isOldDirect) {
+                val isOldDns = existing.optString("port") == "53" || outboundTag == "dns-out"
+                if (!isOldDirect && !isOldDns) {
                     newRules.put(existing)
                 }
             }

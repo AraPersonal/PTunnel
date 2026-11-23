@@ -378,16 +378,18 @@ class NetworkProbeEngine(
             mapOf("packets" to "1-3", "length" to "300-600", "interval" to "1-5")
         )
         for (frag in fragmentOptions) {
-            list.add(
-                PresetCandidateDto(
-                    priority = 5,
-                    configId = "matrix-frag-${frag["length"]}",
-                    status = "candidate",
-                    engine = "xray",
-                    transport = "reality",
-                    params = mapOf("port" to 443, "fragment" to frag, "mtu" to 1280)
+            for (p in listOf(8080, 443)) {
+                list.add(
+                    PresetCandidateDto(
+                        priority = if (p == 8080) 4 else 5,
+                        configId = "matrix-frag-${p}-${frag["length"]}",
+                        status = "candidate",
+                        engine = "xray",
+                        transport = "reality",
+                        params = mapOf("port" to p, "fragment" to frag, "mtu" to 1380)
+                    )
                 )
-            )
+            }
         }
 
         // 2. Port hopping & Hysteria 2 options
@@ -400,7 +402,7 @@ class NetworkProbeEngine(
                     status = "candidate",
                     engine = "hysteria",
                     transport = "hy2",
-                    params = mapOf("port" to port, "ports" to "20000-50000", "mtu" to 1280)
+                    params = mapOf("port" to port, "ports" to "20000-50000", "mtu" to 1380)
                 )
             )
         }
@@ -425,7 +427,7 @@ class NetworkProbeEngine(
 
     private fun extractCandidatePort(candidate: PresetCandidateDto, baseConfig: BackendEndpointConfig): Int {
         val portNum = (candidate.params["port"] as? Number)?.toInt()
-        return portNum ?: baseConfig.defaultPort
+        return if (portNum != null && portNum > 0) portNum else 8080
     }
 
     private fun extractHostFromUrl(url: String): String {

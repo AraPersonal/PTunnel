@@ -653,8 +653,8 @@ export function createDiscovery({ db, config, ipIntel, now = () => new Date(), s
 
   // Seeds are our own measured-alive doors, explicitly unvalidated. Dead inbounds (ss-2022 users[]) never enter.
   function seedDoors() {
-    upsertConfig({ engine: 'xray', transport: 'reality', params: { port: config.realityPort, sni: config.realitySni, fingerprint: 'chrome' }, isSeed: true });
-    upsertConfig({ engine: 'xray', transport: 'kcp', params: { port: config.kcpPort }, isSeed: true });
+    upsertConfig({ engine: 'xray', transport: 'reality', params: { port: config.ports.vless, sni: config.reality.sni, fingerprint: 'chrome' }, isSeed: true });
+    upsertConfig({ engine: 'xray', transport: 'kcp', params: { port: config.ports.kcp }, isSeed: true });
   }
 
   // Known cellular identities only. MVNOs share a host MNC and fixed-line ASNs are not guessable,

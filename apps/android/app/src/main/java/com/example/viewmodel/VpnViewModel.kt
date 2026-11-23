@@ -112,14 +112,42 @@ val DEFAULT_SERVERS = listOf(
         flagEmoji = "🇩🇪",
         name = "Germany • Reality",
         host = "62.144.51.213",
-        port = 443,
+        port = 8080,
         protocolScheme = "vless",
         credential = "36827084-bbb2-4bca-ab73-d883d22b3d91",
         security = "reality",
         transport = "tcp",
         sni = "www.microsoft.com",
-        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@62.144.51.213:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇩🇪 Germany - Reality",
+        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@62.144.51.213:8080?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇩🇪 Germany - Reality",
         pingMs = 45
+    ),
+    VpnServer(
+        id = "srv_turkey_reality",
+        flagEmoji = "🇹🇷",
+        name = "Turkey • Reality",
+        host = "38.17.64.159",
+        port = 8080,
+        protocolScheme = "vless",
+        credential = "36827084-bbb2-4bca-ab73-d883d22b3d91",
+        security = "reality",
+        transport = "tcp",
+        sni = "www.microsoft.com",
+        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@38.17.64.159:8080?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇹🇷 Turkey - Reality",
+        pingMs = 38
+    ),
+    VpnServer(
+        id = "srv_main_reality",
+        flagEmoji = "🇩🇪",
+        name = "Germany 1 • Reality",
+        host = "86.54.42.124",
+        port = 8080,
+        protocolScheme = "vless",
+        credential = "36827084-bbb2-4bca-ab73-d883d22b3d91",
+        security = "reality",
+        transport = "tcp",
+        sni = "www.microsoft.com",
+        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@86.54.42.124:8080?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇩🇪 Germany 1 - Reality",
+        pingMs = 55
     ),
     VpnServer(
         id = "srv_germany_2_kcp",
@@ -134,34 +162,6 @@ val DEFAULT_SERVERS = listOf(
         sni = "62-144-51-213.nip.io",
         rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@62.144.51.213:8443?encryption=none&security=tls&sni=62-144-51-213.nip.io&type=kcp&headerType=salamander#🇩🇪 Germany - mKCP",
         pingMs = 52
-    ),
-    VpnServer(
-        id = "srv_main_reality",
-        flagEmoji = "🇩🇪",
-        name = "Germany 1 • Reality",
-        host = "86.54.42.124",
-        port = 443,
-        protocolScheme = "vless",
-        credential = "36827084-bbb2-4bca-ab73-d883d22b3d91",
-        security = "reality",
-        transport = "tcp",
-        sni = "www.microsoft.com",
-        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@86.54.42.124:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇩🇪 Germany 1 - Reality",
-        pingMs = 55
-    ),
-    VpnServer(
-        id = "srv_turkey_reality",
-        flagEmoji = "🇹🇷",
-        name = "Turkey • Reality",
-        host = "38.17.64.159",
-        port = 443,
-        protocolScheme = "vless",
-        credential = "36827084-bbb2-4bca-ab73-d883d22b3d91",
-        security = "reality",
-        transport = "tcp",
-        sni = "www.microsoft.com",
-        rawUri = "vless://36827084-bbb2-4bca-ab73-d883d22b3d91@38.17.64.159:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY&sid=2a18498b611d7ac7&type=tcp&flow=xtls-rprx-vision#🇹🇷 Turkey - Reality",
-        pingMs = 38
     )
 )
 
@@ -947,7 +947,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         candidate: PresetCandidateDto? = null
     ): String {
         val host = location.host.ifBlank { "62.144.51.213" }
-        val realityPort = (candidate?.params?.get("port") as? Number)?.toInt() ?: 443
+        val realityPort = (candidate?.params?.get("port") as? Number)?.toInt() ?: 8080
         val vlessId = "36827084-bbb2-4bca-ab73-d883d22b3d91"
         val realityPubKey = if (host == "86.54.42.124" || host == "38.17.64.159") {
             "2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY"
@@ -1000,7 +1000,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 })
             })
             put("outbounds", org.json.JSONArray().apply {
-                // 1. Reality TCP
+                // 1. Reality TCP (XTLS Vision)
                 put(JSONObject().apply {
                     put("tag", "reality")
                     put("protocol", "vless")
@@ -1047,7 +1047,43 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         })
                     })
                 })
-                // 2. mKCP UDP
+                // 2. Reality UDP (without Vision flow, so UDP packets are carried)
+                put(JSONObject().apply {
+                    put("tag", "reality-udp")
+                    put("protocol", "vless")
+                    put("settings", JSONObject().apply {
+                        put("vnext", org.json.JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("address", host)
+                                put("port", realityPort)
+                                put("users", org.json.JSONArray().apply {
+                                    put(JSONObject().apply {
+                                        put("id", vlessId)
+                                        put("encryption", "none")
+                                    })
+                                })
+                            })
+                        })
+                    })
+                    put("streamSettings", JSONObject().apply {
+                        put("network", "tcp")
+                        put("security", "reality")
+                        put("realitySettings", JSONObject().apply {
+                            put("show", false)
+                            put("serverName", "www.microsoft.com")
+                            put("fingerprint", "chrome")
+                            put("publicKey", realityPubKey)
+                            put("shortId", "2a18498b611d7ac7")
+                            put("spiderX", "/")
+                        })
+                    })
+                })
+                // 3. DNS Hijack Outbound (DoH via Xray's DNS engine)
+                put(JSONObject().apply {
+                    put("tag", "dns-out")
+                    put("protocol", "dns")
+                })
+                // 4. mKCP UDP
                 put(JSONObject().apply {
                     put("tag", "kcp")
                     put("protocol", "vless")
@@ -1095,6 +1131,13 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 put("rules", org.json.JSONArray().apply {
                     put(JSONObject().apply {
                         put("type", "field")
+                        put("inboundTag", org.json.JSONArray().apply { put("tun") })
+                        put("port", "53")
+                        put("network", "udp,tcp")
+                        put("outboundTag", "dns-out")
+                    })
+                    put(JSONObject().apply {
+                        put("type", "field")
                         put("domain", org.json.JSONArray().apply {
                             put("domain:ir")
                             put("regexp:.*\\.ir$")
@@ -1113,14 +1156,13 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     })
                     put(JSONObject().apply {
                         put("type", "field")
-                        put("port", "53")
-                        put("network", "udp")
+                        put("network", "tcp")
                         put("outboundTag", "reality")
                     })
                     put(JSONObject().apply {
                         put("type", "field")
-                        put("network", "tcp,udp")
-                        put("outboundTag", "reality")
+                        put("network", "udp")
+                        put("outboundTag", "reality-udp")
                     })
                 })
             })
@@ -1154,9 +1196,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     outbounds.optJSONObject(0)
                 }
 
-                if (primary != null) {
-                    val portNum = (candidate.params["port"] as? Number)?.toInt()
-                    if (portNum != null && portNum > 0) {
+                    val portNum = (candidate.params["port"] as? Number)?.toInt() ?: 8080
+                    if (portNum > 0) {
                         val settings = primary.optJSONObject("settings")
                         val vnext = settings?.optJSONArray("vnext")
                         vnext?.optJSONObject(0)?.put("port", portNum)
