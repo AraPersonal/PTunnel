@@ -22,7 +22,7 @@ jobs:
           - name: awg
             context: infra/docker/awg
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # Container registry references must be lowercase. github.repository keeps the owner's casing,
       # so ghcr.io/AraPersonal/PTunnel was rejected outright - both image builds failed on this alone.
       - name: lowercase image prefix and tag

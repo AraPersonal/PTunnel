@@ -15,8 +15,8 @@ jobs:
       run:
         working-directory: apps/panel
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
@@ -34,7 +34,7 @@ jobs:
   hygiene:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: no secrets in tracked files
         run: bash tools/check-no-secrets.sh
       - name: every yaml parses
@@ -44,7 +44,7 @@ jobs:
   infra:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: ansible
         run: |
           python3 -m pip install --quiet --user ansible-core

@@ -23,7 +23,7 @@ jobs:
     # Approvals, required reviewers and environment secrets live here. prod should require a reviewer.
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: lowercase repository
         run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
       - name: deploy over ssh
