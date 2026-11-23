@@ -41,7 +41,7 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519; chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts; chmod 600 ~/.ssh/known_hosts
           ssh -o BatchMode=yes -i ~/.ssh/id_ed25519 "$USER_NAME@$HOST" \
-            "cd /opt/ptunnel && ./deploy.sh '$PT_ENV' '$IMAGE_TAG' '$REPO'"
+            "cd /opt/ptunnel && ./deploy.sh '$PT_ENV' '$IMAGE_TAG' '$REPO' && if [ -x ./scripts/fleet-update.sh ]; then ./scripts/fleet-update.sh '$IMAGE_TAG' '$REPO'; fi"
       - name: public health gate
         env:
           PUBLIC_URL: ${{ secrets.PUBLIC_URL }}

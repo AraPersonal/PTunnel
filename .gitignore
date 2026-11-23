@@ -24,3 +24,8 @@ apps/panel/data/
 # Release keystores never enter the repo; only the well-known Android debug key is committed.
 *.jks
 !apps/android/debug.keystore
+
+# Local test & scratch scripts
+*.ps1
+agentrouter_bridge*.py
+

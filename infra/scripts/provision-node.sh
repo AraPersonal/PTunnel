@@ -28,7 +28,7 @@ echo "[1/7] Updating system and installing base dependencies..."
 apt-get update -qq
 apt-get install -y -qq \
   curl ca-certificates jq unzip nftables iptables ufw \
-  software-properties-common sqlite3 certbot python3-certbot-nginx nginx
+   sqlite3 certbot python3-certbot-nginx nginx
 
 # 2. Enable BBR congestion control and fq
 echo "[2/7] Enabling BBR congestion control & optimizing kernel..."
@@ -43,15 +43,8 @@ sysctl --system >/dev/null 2>&1 || true
 # 3. Install Docker & Compose plugin (if not installed)
 echo "[3/7] Setting up Docker engine..."
 if ! command -v docker >/dev/null 2>&1; then
-  install -m 0755 -d /etc/apt/keyrings
-  curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-  chmod a+r /etc/apt/keyrings/docker.asc
-  echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-    tee /etc/apt/sources.list.d/docker.list > /dev/null
-  apt-get update -qq
-  apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  echo "Installing Docker engine via official installer..."
+  curl -fsSL https://get.docker.com | sh
   systemctl enable --now docker
 fi
 

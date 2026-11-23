@@ -28,7 +28,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 # 1. Base system setup
 apt-get update -qq
-apt-get install -y -qq curl ca-certificates jq unzip nftables iptables ufw software-properties-common sqlite3 certbot nginx
+apt-get install -y -qq curl ca-certificates jq unzip nftables iptables ufw  sqlite3 certbot nginx
 
 # 2. Kernel optimization (BBR & FQ)
 cat > /etc/sysctl.d/90-ptunnel.conf <<'EOF'
@@ -41,15 +41,8 @@ sysctl --system >/dev/null 2>&1 || true
 
 # 3. Docker install
 if ! command -v docker >/dev/null 2>&1; then
-  install -m 0755 -d /etc/apt/keyrings
-  curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-  chmod a+r /etc/apt/keyrings/docker.asc
-  echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-    tee /etc/apt/sources.list.d/docker.list > /dev/null
-  apt-get update -qq
-  apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  echo "Installing Docker engine via official installer..."
+  curl -fsSL https://get.docker.com | sh
   systemctl enable --now docker
 fi
 
