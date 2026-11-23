@@ -1196,6 +1196,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     outbounds.optJSONObject(0)
                 }
 
+                if (primary != null) {
                     val portNum = (candidate.params["port"] as? Number)?.toInt() ?: 8080
                     if (portNum > 0) {
                         val settings = primary.optJSONObject("settings")
