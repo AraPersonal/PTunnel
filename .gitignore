@@ -29,3 +29,4 @@ apps/panel/data/
 *.ps1
 agentrouter_bridge*.py
 
+downloaded_apks*/

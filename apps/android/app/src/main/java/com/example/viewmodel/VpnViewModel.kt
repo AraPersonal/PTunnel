@@ -958,9 +958,19 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         val root = JSONObject().apply {
             put("log", JSONObject().apply { put("loglevel", "warning") })
             put("dns", JSONObject().apply {
+                put("queryStrategy", "UseIPv4")
                 put("servers", org.json.JSONArray().apply {
                     put("https://1.1.1.1/dns-query")
                     put("https://8.8.8.8/dns-query")
+                })
+            })
+            put("policy", JSONObject().apply {
+                put("levels", JSONObject().apply {
+                    put("8", JSONObject().apply {
+                        put("handshake", 4)
+                        put("connIdle", 300)
+                        put("bufferSize", 4096)
+                    })
                 })
             })
             put("inbounds", org.json.JSONArray().apply {
@@ -1014,15 +1024,16 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         put("security", "reality")
                         put("sockopt", JSONObject().apply {
                             put("tcpNoDelay", true)
-                            put("tcpUserTimeout", 60000)
-                            put("tcpKeepAliveIdle", 60)
-                            put("tcpKeepAliveInterval", 30)
+                            put("tcpCongestion", "bbr")
+                            put("tcpUserTimeout", 30000)
+                            put("tcpKeepAliveIdle", 30)
+                            put("tcpKeepAliveInterval", 15)
                             val frag = candidate?.params?.get("fragment") as? Map<*, *>
                             if (frag != null) {
                                 put("fragment", JSONObject().apply {
                                     put("packets", frag["packets"]?.toString() ?: "1-3")
                                     put("length", frag["length"]?.toString() ?: "100-200")
-                                    put("interval", frag["interval"]?.toString() ?: "10-20")
+                                    put("interval", frag["interval"]?.toString() ?: "1-2")
                                 })
                             }
                         })
@@ -1151,16 +1162,40 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         vnext?.optJSONObject(0)?.put("port", portNum)
                     }
 
+                    val streamSettings = primary.optJSONObject("streamSettings") ?: JSONObject().also { primary.put("streamSettings", it) }
+                    val sockopt = streamSettings.optJSONObject("sockopt") ?: JSONObject().also { streamSettings.put("sockopt", it) }
+                    sockopt.put("tcpNoDelay", true)
+                    sockopt.put("tcpCongestion", "bbr")
+                    sockopt.put("tcpKeepAliveIdle", 30)
+                    sockopt.put("tcpKeepAliveInterval", 15)
+
                     val frag = candidate.params["fragment"] as? Map<*, *>
                     if (frag != null) {
-                        val streamSettings = primary.optJSONObject("streamSettings") ?: JSONObject().also { primary.put("streamSettings", it) }
-                        val sockopt = streamSettings.optJSONObject("sockopt") ?: JSONObject().also { streamSettings.put("sockopt", it) }
                         val fragObj = JSONObject().apply {
                             put("packets", frag["packets"]?.toString() ?: "1-3")
                             put("length", frag["length"]?.toString() ?: "100-200")
-                            put("interval", frag["interval"]?.toString() ?: "10-20")
+                            put("interval", frag["interval"]?.toString() ?: "1-2")
                         }
                         sockopt.put("fragment", fragObj)
+                    }
+                }
+            }
+
+            // Tune DNS for speed (skip IPv6 AAAA timeouts)
+            root.optJSONObject("dns")?.put("queryStrategy", "UseIPv4")
+
+            // Maximize throughput buffer
+            val policyLevels = root.optJSONObject("policy")?.optJSONObject("levels")
+            policyLevels?.optJSONObject("8")?.put("bufferSize", 4096)
+
+            // Direct traffic to chosen transport rather than bouncing across balancers
+            val routingRules = root.optJSONObject("routing")?.optJSONArray("rules")
+            if (routingRules != null) {
+                for (i in 0 until routingRules.length()) {
+                    val r = routingRules.optJSONObject(i) ?: continue
+                    if (r.optString("balancerTag") == "multi") {
+                        r.remove("balancerTag")
+                        r.put("outboundTag", candidate.transport)
                     }
                 }
             }

@@ -37,10 +37,7 @@ const TUNNEL_SOCKOPT = {
  * profile, so a new option is proven on one device before it is handed to everyone.
  */
 function tunnelSockopt(user) {
-  if (config.bbrTestUsers.includes(String(user?.username ?? ''))) {
-    return { ...TUNNEL_SOCKOPT, tcpCongestion: 'bbr' };
-  }
-  return { ...TUNNEL_SOCKOPT };
+  return { ...TUNNEL_SOCKOPT, tcpCongestion: 'bbr' };
 }
 
 /**
@@ -379,7 +376,7 @@ export function buildXrayClientConfig(user, tag) {
     stats: {},
     policy: {
       levels: {
-        8: { handshake: 4, connIdle: 300, uplinkOnly: 1, downlinkOnly: 1 },
+        8: { handshake: 4, connIdle: 300, uplinkOnly: 1, downlinkOnly: 1, bufferSize: 4096 },
       },
       system: { statsOutboundUplink: true, statsOutboundDownlink: true },
     },
@@ -424,14 +421,7 @@ export function buildXrayClientConfig(user, tag) {
     },
     dns: {
       hosts: dnsHosts(),
-      // DoH only, and never a bare UDP resolver. The UDP fallback added on 2026-11-04 did cure the
-      // timeouts on a throttled line, and it leaked: the core's own lookup goes out through
-      // `dns-out`, which is the DIRECT path — caught on the device as
-      // `from DNS accepted udp:1.1.1.1:53 [xray.system.… -> dns-out]` immediately after
-      // `Post "https://1.1.1.1/dns-query": context deadline exceeded`. DoH is different: the same log
-      // shows `https://1.1.1.1/dns-query [xray.system.… -> reality]`, i.e. inside the tunnel. A leaked
-      // resolver is worse than a slow one — the carrier answers it, geo-blocked services stop working
-      // and every DNS/IP lookup page shows Iran. Two DoH endpoints keep reliability without the leak.
+      queryStrategy: 'UseIPv4',
       servers: ['https://1.1.1.1/dns-query', 'https://1.0.0.1/dns-query'],
     },
   };

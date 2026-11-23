@@ -371,7 +371,7 @@ class ShieldVpnService : VpnService() {
 
     private fun establishTun(): ParcelFileDescriptor {
         val linkMtu = underlyingLinkMtu()
-        val mtu = TunnelMtu.forLink(linkMtu ?: 0)
+        val mtu = TunnelMtu.forLink(linkMtu ?: 1500)
         val v6 = linkHasIpv6Address()
         Log.i(TAG, "TUN MTU $mtu (underlying link ${linkMtu ?: "unknown"}), IPv6 on link=$v6")
 

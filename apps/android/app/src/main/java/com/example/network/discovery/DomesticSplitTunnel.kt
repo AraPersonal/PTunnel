@@ -20,6 +20,11 @@ object DomesticSplitTunnel {
 
     init {
         domesticSuffixes.add(".ir")
+        listOf(
+            ".aparat.com", ".digikala.com", ".snapp.ir", ".snapp.cab", ".snapp.doctor",
+            ".snapp.market", ".tapsi.ir", ".tapsi.cab", ".divar.ir", ".divar.cloud",
+            ".rubika.ir", ".eitaa.com", ".bale.ai", ".telewebion.com", ".shaparak.ir"
+        ).forEach { domesticSuffixes.add(it) }
     }
 
     /**
