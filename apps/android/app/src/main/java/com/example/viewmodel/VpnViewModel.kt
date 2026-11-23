@@ -73,9 +73,7 @@ val DEFAULT_USER_PROFILE = UserProfile(
     totalBytes = 53687091200L,
     expiryDaysRemaining = 30,
     status = "active",
-    username = "client@ptunnel.net",
-    role = "user",
-    channel = "prod"
+    username = "client@ptunnel.net"
 )
 
 val DEFAULT_LOCATIONS = listOf(
@@ -828,7 +826,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
             // Last resort: the cached profile dials our address directly, so it can still get the
             // user online when only the API or the hostname is being blocked.
-            val tunedCached = DomesticSplitTunnel.injectDomesticRouting(cached)
+            val tunedCached = DomesticSplitTunnel.injectDomesticRouting(cached!!)
             startTunnelWith(tunedCached)
         }
     }
