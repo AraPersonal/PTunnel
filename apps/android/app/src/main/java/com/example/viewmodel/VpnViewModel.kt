@@ -701,22 +701,24 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
 
-            // Run two-phase discovery calibration (Phase 1 fast presets probe; Phase 2 matrix scan)
-            val discoveryResult = runCatching {
-                networkProbeEngine.discoverAndTune(
-                    authToken = state.userProfile.authToken,
-                    baseConfig = config,
-                    forceRescan = false,
-                    onProgress = { status, _ ->
-                        _uiState.update { s ->
-                            s.copy(
-                                isScanning = true,
-                                discoveryReality = s.discoveryReality.copy(status = status)
-                            )
+            // Run two-phase discovery calibration with strict 4.5s cap so slow/blocked APIs never stall connect
+            val discoveryResult = withTimeoutOrNull(4500L) {
+                runCatching {
+                    networkProbeEngine.discoverAndTune(
+                        authToken = state.userProfile.authToken,
+                        baseConfig = config,
+                        forceRescan = false,
+                        onProgress = { status, _ ->
+                            _uiState.update { s ->
+                                s.copy(
+                                    isScanning = true,
+                                    discoveryReality = s.discoveryReality.copy(status = status)
+                                )
+                            }
                         }
-                    }
-                ).getOrNull()
-            }.getOrNull()
+                    ).getOrNull()
+                }.getOrNull()
+            }
 
             if (discoveryResult != null) {
                 activeDiscoveryCandidate = discoveryResult.selectedCandidate
@@ -740,12 +742,16 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
-            var fetched = repository.fetchXrayConfig(config, state.userProfile, "multi")
+            var fetched = withTimeoutOrNull(5000L) {
+                repository.fetchXrayConfig(config, state.userProfile, "multi")
+            } ?: Result.failure(IllegalStateException("Config fetch timed out"))
             if (fetched.isFailure &&
                 (repository.refreshBootstrap() || repository.refreshBootstrapFromDns())
             ) {
                 // The out-of-band channel handed us new entry points; retry before giving up.
-                fetched = repository.fetchXrayConfig(config, state.userProfile, "multi")
+                fetched = withTimeoutOrNull(4000L) {
+                    repository.fetchXrayConfig(config, state.userProfile, "multi")
+                } ?: fetched
             }
 
             val live = fetched.getOrNull() ?: buildFallbackConfig(target, state.userProfile, discoveryResult?.selectedCandidate)
@@ -967,25 +973,33 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         val host = location.host.ifBlank { "62.144.51.213" }
         val realityPort = (candidate?.params?.get("port") as? Number)?.toInt() ?: 443
         val vlessId = "36827084-bbb2-4bca-ab73-d883d22b3d91"
-        val (realityPubKey, realityShortId) = when (host) {
-            "38.17.64.159" -> Pair("lrYtUcwse7BYCKWn4_8YxcUbIvpRomQUNvRWNHvUyCw", "28ed7bd8d59fbb57")
-            "86.54.42.124" -> Pair("2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY", "2a18498b611d7ac7")
-            else -> Pair("tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw", "2a18498b611d7ac7")
+        val vmessId = "dc1d11df-4ea1-437c-abc0-0cd47f45c60b"
+        val (realityPubKey, realityShortId, kcpSni) = when (host) {
+            "38.17.64.159" -> Triple("lrYtUcwse7BYCKWn4_8YxcUbIvpRomQUNvRWNHvUyCw", "28ed7bd8d59fbb57", "38.17.64.159.nip.io")
+            "86.54.42.124" -> Triple("2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY", "2a18498b611d7ac7", "86-54-42-124.nip.io")
+            else -> Triple("tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw", "2a18498b611d7ac7", "62-144-51-213.nip.io")
         }
 
         val root = JSONObject().apply {
             put("log", JSONObject().apply { put("loglevel", "warning") })
             put("dns", JSONObject().apply {
                 put("queryStrategy", "UseIPv4")
+                put("hosts", JSONObject().apply {
+                    put(kcpSni, host)
+                    put("cdn.ptu.beauty", org.json.JSONArray().apply {
+                        put("188.114.96.3")
+                        put("188.114.97.3")
+                    })
+                })
                 put("servers", org.json.JSONArray().apply {
                     put("https://1.1.1.1/dns-query")
-                    put("https://8.8.8.8/dns-query")
+                    put("https://1.0.0.1/dns-query")
                 })
             })
             put("policy", JSONObject().apply {
                 put("levels", JSONObject().apply {
                     put("8", JSONObject().apply {
-                        put("handshake", 4)
+                        put("handshake", 8)
                         put("connIdle", 300)
                         put("bufferSize", 4096)
                     })
@@ -1018,9 +1032,47 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 })
             })
             put("outbounds", org.json.JSONArray().apply {
-                // 1. Reality TCP (XTLS Vision)
+                // 1. Direct Reality TCP (no fragment overhead on unthrottled lines)
                 put(JSONObject().apply {
                     put("tag", "reality")
+                    put("protocol", "vless")
+                    put("settings", JSONObject().apply {
+                        put("vnext", org.json.JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("address", host)
+                                put("port", realityPort)
+                                put("users", org.json.JSONArray().apply {
+                                    put(JSONObject().apply {
+                                        put("id", vlessId)
+                                        put("encryption", "none")
+                                        put("flow", "xtls-rprx-vision")
+                                    })
+                                })
+                            })
+                        })
+                    })
+                    put("streamSettings", JSONObject().apply {
+                        put("network", "tcp")
+                        put("security", "reality")
+                        put("sockopt", JSONObject().apply {
+                            put("tcpNoDelay", true)
+                            put("tcpUserTimeout", 30000)
+                            put("tcpKeepAliveIdle", 30)
+                            put("tcpKeepAliveInterval", 15)
+                        })
+                        put("realitySettings", JSONObject().apply {
+                            put("show", false)
+                            put("serverName", "www.microsoft.com")
+                            put("fingerprint", "chrome")
+                            put("publicKey", realityPubKey)
+                            put("shortId", realityShortId)
+                            put("spiderX", "/")
+                        })
+                    })
+                })
+                // 2. Fragmented Reality TCP (bypasses DPI SNI throttling on MCI / Irancell)
+                put(JSONObject().apply {
+                    put("tag", "reality-frag")
                     put("protocol", "vless")
                     put("settings", JSONObject().apply {
                         put("vnext", org.json.JSONArray().apply {
@@ -1057,75 +1109,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         })
                     })
                 })
-                // 2. Reality UDP (without Vision flow, so UDP packets are carried)
-                put(JSONObject().apply {
-                    put("tag", "reality-udp")
-                    put("protocol", "vless")
-                    put("settings", JSONObject().apply {
-                        put("vnext", org.json.JSONArray().apply {
-                            put(JSONObject().apply {
-                                put("address", host)
-                                put("port", realityPort)
-                                put("users", org.json.JSONArray().apply {
-                                    put(JSONObject().apply {
-                                        put("id", vlessId)
-                                        put("encryption", "none")
-                                    })
-                                })
-                            })
-                        })
-                    })
-                    put("streamSettings", JSONObject().apply {
-                        put("network", "tcp")
-                        put("security", "reality")
-                        put("sockopt", JSONObject().apply {
-                            put("dialerProxy", "fragment")
-                            put("tcpNoDelay", true)
-                            put("tcpUserTimeout", 30000)
-                            put("tcpKeepAliveIdle", 30)
-                            put("tcpKeepAliveInterval", 15)
-                        })
-                        put("realitySettings", JSONObject().apply {
-                            put("show", false)
-                            put("serverName", "www.microsoft.com")
-                            put("fingerprint", "chrome")
-                            put("publicKey", realityPubKey)
-                            put("shortId", realityShortId)
-                            put("spiderX", "/")
-                        })
-                    })
-                })
-                // 3. Freedom TLS Fragmentation dialerProxy outbound (bypasses Iranian carrier DPI)
-                val frag = (candidate?.params?.get("fragment") as? Map<*, *>) ?: mapOf(
-                    "packets" to "1-3",
-                    "length" to "10-30",
-                    "interval" to "5-15"
-                )
-                put(JSONObject().apply {
-                    put("tag", "fragment")
-                    put("protocol", "freedom")
-                    put("settings", JSONObject().apply {
-                        put("domainStrategy", "AsIs")
-                        put("fragment", JSONObject().apply {
-                            put("packets", frag["packets"]?.toString() ?: "1-3")
-                            put("length", frag["length"]?.toString() ?: "10-30")
-                            put("interval", frag["interval"]?.toString() ?: "5-15")
-                        })
-                    })
-                    put("streamSettings", JSONObject().apply {
-                        put("sockopt", JSONObject().apply {
-                            put("tcpNoDelay", true)
-                            put("tcpKeepAliveIdle", 30)
-                            put("tcpKeepAliveInterval", 15)
-                        })
-                    })
-                })
-                // 4. DNS Hijack Outbound (DoH via Xray's DNS engine)
-                put(JSONObject().apply {
-                    put("tag", "dns-out")
-                    put("protocol", "dns")
-                })
-                // 4. mKCP UDP
+                // 3. mKCP + FinalMask Salamander + TLS (UDP 8443 - high throughput on Iranian carriers)
                 put(JSONObject().apply {
                     put("tag", "kcp")
                     put("protocol", "vless")
@@ -1145,18 +1129,110 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     })
                     put("streamSettings", JSONObject().apply {
                         put("network", "kcp")
+                        put("security", "tls")
+                        put("tlsSettings", JSONObject().apply {
+                            put("serverName", kcpSni)
+                            put("allowInsecure", false)
+                            put("alpn", org.json.JSONArray().apply {
+                                put("h2")
+                                put("http/1.1")
+                            })
+                        })
                         put("kcpSettings", JSONObject().apply {
-                            put("mtu", 1350)
+                            put("mtu", 1200)
                             put("tti", 20)
-                            put("uplinkCapacity", 100)
-                            put("downlinkCapacity", 100)
+                            put("uplinkCapacity", 1000)
+                            put("downlinkCapacity", 1000)
                             put("congestion", false)
-                            put("readBufferSize", 2)
-                            put("writeBufferSize", 2)
-                            put("header", JSONObject().apply { put("type", "srtp") })
-                            put("seed", "ptunnel-kcp-seed")
+                            put("readBufferSize", 32)
+                            put("writeBufferSize", 32)
+                        })
+                        put("finalmask", JSONObject().apply {
+                            put("udp", org.json.JSONArray().apply {
+                                put(JSONObject().apply {
+                                    put("type", "salamander")
+                                    put("settings", JSONObject().apply {
+                                        put("password", "IqE5nHey2xqXXiew2xh9lMnhy4MdCuh4")
+                                    })
+                                })
+                            })
+                        })
+                        put("sockopt", JSONObject().apply {
+                            put("tcpNoDelay", true)
+                            put("tcpUserTimeout", 30000)
+                            put("tcpKeepAliveIdle", 30)
+                            put("tcpKeepAliveInterval", 15)
                         })
                     })
+                })
+                // 4. Cloudflare CDN Edge Fallback (survives direct IP throttling/blocking)
+                put(JSONObject().apply {
+                    put("tag", "cdn")
+                    put("protocol", "vmess")
+                    put("settings", JSONObject().apply {
+                        put("vnext", org.json.JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("address", "188.114.96.3")
+                                put("port", 2083)
+                                put("users", org.json.JSONArray().apply {
+                                    put(JSONObject().apply {
+                                        put("id", vmessId)
+                                        put("alterId", 0)
+                                        put("security", "auto")
+                                    })
+                                })
+                            })
+                        })
+                    })
+                    put("streamSettings", JSONObject().apply {
+                        put("network", "ws")
+                        put("security", "tls")
+                        put("tlsSettings", JSONObject().apply {
+                            put("serverName", "cdn.ptu.beauty")
+                            put("allowInsecure", false)
+                            put("alpn", org.json.JSONArray().apply { put("http/1.1") })
+                        })
+                        put("wsSettings", JSONObject().apply {
+                            put("path", "/ptunnel-ws")
+                            put("headers", JSONObject().apply { put("host", "cdn.ptu.beauty") })
+                        })
+                        put("sockopt", JSONObject().apply {
+                            put("tcpNoDelay", true)
+                            put("tcpUserTimeout", 30000)
+                            put("tcpKeepAliveIdle", 30)
+                            put("tcpKeepAliveInterval", 15)
+                        })
+                    })
+                })
+                // 5. Freedom TLS Fragmentation dialerProxy outbound
+                val frag = (candidate?.params?.get("fragment") as? Map<*, *>) ?: mapOf(
+                    "packets" to "1-3",
+                    "length" to "15-40",
+                    "interval" to "2-5"
+                )
+                put(JSONObject().apply {
+                    put("tag", "fragment")
+                    put("protocol", "freedom")
+                    put("settings", JSONObject().apply {
+                        put("domainStrategy", "AsIs")
+                        put("fragment", JSONObject().apply {
+                            put("packets", frag["packets"]?.toString() ?: "1-3")
+                            put("length", frag["length"]?.toString() ?: "15-40")
+                            put("interval", frag["interval"]?.toString() ?: "2-5")
+                        })
+                    })
+                    put("streamSettings", JSONObject().apply {
+                        put("sockopt", JSONObject().apply {
+                            put("tcpNoDelay", true)
+                            put("tcpKeepAliveIdle", 30)
+                            put("tcpKeepAliveInterval", 15)
+                        })
+                    })
+                })
+                // 6. DNS Hijack Outbound (DoH via Xray's DNS engine)
+                put(JSONObject().apply {
+                    put("tag", "dns-out")
+                    put("protocol", "dns")
                 })
                 // Direct & Block
                 put(JSONObject().apply {
@@ -1168,8 +1244,32 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     put("protocol", "blackhole")
                 })
             })
+            put("observatory", JSONObject().apply {
+                put("subjectSelector", org.json.JSONArray().apply {
+                    put("reality")
+                    put("reality-frag")
+                    put("kcp")
+                    put("cdn")
+                })
+                put("probeUrl", "https://cp.cloudflare.com/generate_204")
+                put("probeInterval", "30s")
+                put("enableConcurrency", true)
+            })
             put("routing", JSONObject().apply {
                 put("domainStrategy", "IPIfNonMatch")
+                put("balancers", org.json.JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("tag", "multi")
+                        put("selector", org.json.JSONArray().apply {
+                            put("reality")
+                            put("reality-frag")
+                            put("kcp")
+                            put("cdn")
+                        })
+                        put("strategy", JSONObject().apply { put("type", "leastPing") })
+                        put("fallbackTag", "cdn")
+                    })
+                })
                 put("rules", org.json.JSONArray().apply {
                     put(JSONObject().apply {
                         put("type", "field")
@@ -1198,13 +1298,14 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     })
                     put(JSONObject().apply {
                         put("type", "field")
-                        put("network", "tcp")
-                        put("outboundTag", "reality")
+                        put("network", "udp")
+                        put("port", 443)
+                        put("outboundTag", "block")
                     })
                     put(JSONObject().apply {
                         put("type", "field")
-                        put("network", "udp")
-                        put("outboundTag", "reality-udp")
+                        put("network", "tcp,udp")
+                        put("balancerTag", "multi")
                     })
                 })
             })
@@ -1217,117 +1318,134 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             val root = JSONObject(profileJson)
             val outbounds = root.optJSONArray("outbounds")
             if (outbounds != null && outbounds.length() > 0) {
-                var chosenIndex = -1
+                var realityOutbound: JSONObject? = null
+                var hasRealityFrag = false
+                var hasFragmentOutbound = false
+
                 for (i in 0 until outbounds.length()) {
-                    val ob = outbounds.optJSONObject(i)
-                    if (ob?.optString("tag").equals(candidate.transport, ignoreCase = true)) {
-                        chosenIndex = i
-                        break
+                    val ob = outbounds.optJSONObject(i) ?: continue
+                    val tag = ob.optString("tag")
+                    if (tag == "reality") realityOutbound = ob
+                    if (tag == "reality-frag") hasRealityFrag = true
+                    if (tag == "fragment") hasFragmentOutbound = true
+
+                    // Clean unsupported BBR / sockopt.fragment on all outbounds
+                    val ss = ob.optJSONObject("streamSettings")
+                    val so = ss?.optJSONObject("sockopt")
+                    so?.remove("tcpCongestion")
+                    so?.remove("fragment")
+                    if (so != null) {
+                        so.put("tcpNoDelay", true)
+                        so.put("tcpUserTimeout", 30000)
+                        so.put("tcpKeepAliveIdle", 30)
+                        so.put("tcpKeepAliveInterval", 15)
+                    }
+
+                    // Ensure Reality uses port 443 and exact per-host keys
+                    if (tag == "reality" || tag == "reality-frag") {
+                        val candidatePort = (candidate.params["port"] as? Number)?.toInt()
+                        val portNum = if (candidatePort != null && candidatePort > 0 && candidatePort != 8080) candidatePort else 443
+                        val serverObj = ob.optJSONObject("settings")?.optJSONArray("vnext")?.optJSONObject(0)
+                        if (serverObj != null) {
+                            serverObj.put("port", portNum)
+                            val host = serverObj.optString("address")
+                            val rs = ss?.optJSONObject("realitySettings")
+                            if (rs != null) {
+                                when (host) {
+                                    "38.17.64.159" -> {
+                                        rs.put("publicKey", "lrYtUcwse7BYCKWn4_8YxcUbIvpRomQUNvRWNHvUyCw")
+                                        rs.put("shortId", "28ed7bd8d59fbb57")
+                                    }
+                                    "86.54.42.124" -> {
+                                        rs.put("publicKey", "2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY")
+                                        rs.put("shortId", "2a18498b611d7ac7")
+                                    }
+                                    "62.144.51.213" -> {
+                                        rs.put("publicKey", "tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw")
+                                        rs.put("shortId", "2a18498b611d7ac7")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Pin CDN outbound directly to Cloudflare anycast IP to avoid Iranian DNS poisoning
+                    if (tag == "cdn") {
+                        val serverObj = ob.optJSONObject("settings")?.optJSONArray("vnext")?.optJSONObject(0)
+                        if (serverObj != null && serverObj.optString("address") == "cdn.ptu.beauty") {
+                            serverObj.put("address", "188.114.96.3")
+                        }
                     }
                 }
-                val primary = if (chosenIndex >= 0) {
-                    val chosen = outbounds.remove(chosenIndex) as JSONObject
-                    val newOutbounds = org.json.JSONArray()
-                    newOutbounds.put(chosen)
-                    for (i in 0 until outbounds.length()) {
-                        newOutbounds.put(outbounds.optJSONObject(i))
-                    }
-                    root.put("outbounds", newOutbounds)
-                    chosen
-                } else {
-                    outbounds.optJSONObject(0)
-                }
 
-                if (primary != null) {
-                    val candidatePort = (candidate.params["port"] as? Number)?.toInt()
-                    val portNum = if (candidatePort != null && candidatePort > 0 && candidatePort != 8080) candidatePort else 443
-                    val settings = primary.optJSONObject("settings")
-                    val vnext = settings?.optJSONArray("vnext")
-                    val serverObj = vnext?.optJSONObject(0)
-                    if (serverObj != null) {
-                        serverObj.put("port", portNum)
-                        val host = serverObj.optString("address")
-                        val streamSettings = primary.optJSONObject("streamSettings")
-                        val realitySettings = streamSettings?.optJSONObject("realitySettings")
-                        if (realitySettings != null) {
-                            when (host) {
-                                "38.17.64.159" -> {
-                                    realitySettings.put("publicKey", "lrYtUcwse7BYCKWn4_8YxcUbIvpRomQUNvRWNHvUyCw")
-                                    realitySettings.put("shortId", "28ed7bd8d59fbb57")
-                                }
-                                "86.54.42.124" -> {
-                                    realitySettings.put("publicKey", "2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY")
-                                    realitySettings.put("shortId", "2a18498b611d7ac7")
-                                }
-                                "62.144.51.213" -> {
-                                    realitySettings.put("publicKey", "tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw")
-                                    realitySettings.put("shortId", "2a18498b611d7ac7")
-                                }
-                            }
-                        }
-                    }
+                // Keep plain "reality" clean (no dialerProxy) and add "reality-frag" + "fragment" for DPI bypass
+                if (realityOutbound != null) {
+                    realityOutbound.optJSONObject("streamSettings")?.optJSONObject("sockopt")?.remove("dialerProxy")
 
-                    val streamSettings = primary.optJSONObject("streamSettings") ?: JSONObject().also { primary.put("streamSettings", it) }
-                    val sockopt = streamSettings.optJSONObject("sockopt") ?: JSONObject().also { streamSettings.put("sockopt", it) }
-                    sockopt.remove("tcpCongestion")
-                    sockopt.remove("fragment")
-                    sockopt.put("tcpNoDelay", true)
-                    sockopt.put("tcpUserTimeout", 30000)
-                    sockopt.put("tcpKeepAliveIdle", 30)
-                    sockopt.put("tcpKeepAliveInterval", 15)
-
-                    val isReality = primary.optString("tag").contains("reality", ignoreCase = true) ||
-                                    streamSettings.optString("security").equals("reality", ignoreCase = true)
-                    if (isReality && outbounds != null) {
-                        val frag = (candidate.params["fragment"] as? Map<*, *>) ?: mapOf(
-                            "packets" to "1-3",
-                            "length" to "10-30",
-                            "interval" to "5-15"
-                        )
-                        var fragmentOutbound: JSONObject? = null
-                        for (i in 0 until outbounds.length()) {
-                            val ob = outbounds.optJSONObject(i) ?: continue
-                            if (ob.optString("tag") == "fragment") {
-                                fragmentOutbound = ob
-                                break
-                            }
-                        }
-                        if (fragmentOutbound == null) {
-                            fragmentOutbound = JSONObject().apply {
-                                put("tag", "fragment")
-                                put("protocol", "freedom")
-                            }
-                            outbounds.put(fragmentOutbound)
-                        }
-                        fragmentOutbound.put("settings", JSONObject().apply {
-                            put("domainStrategy", "AsIs")
-                            put("fragment", JSONObject().apply {
-                                put("packets", frag["packets"]?.toString() ?: "1-3")
-                                put("length", frag["length"]?.toString() ?: "10-30")
-                                put("interval", frag["interval"]?.toString() ?: "5-15")
+                    val frag = (candidate.params["fragment"] as? Map<*, *>) ?: mapOf(
+                        "packets" to "1-3",
+                        "length" to "15-40",
+                        "interval" to "2-5"
+                    )
+                    if (!hasFragmentOutbound) {
+                        outbounds.put(JSONObject().apply {
+                            put("tag", "fragment")
+                            put("protocol", "freedom")
+                            put("settings", JSONObject().apply {
+                                put("domainStrategy", "AsIs")
+                                put("fragment", JSONObject().apply {
+                                    put("packets", frag["packets"]?.toString() ?: "1-3")
+                                    put("length", frag["length"]?.toString() ?: "15-40")
+                                    put("interval", frag["interval"]?.toString() ?: "2-5")
+                                })
+                            })
+                            put("streamSettings", JSONObject().apply {
+                                put("sockopt", JSONObject().apply {
+                                    put("tcpNoDelay", true)
+                                    put("tcpKeepAliveIdle", 30)
+                                    put("tcpKeepAliveInterval", 15)
+                                })
                             })
                         })
-                        fragmentOutbound.put("streamSettings", JSONObject().apply {
-                            put("sockopt", JSONObject().apply {
-                                put("tcpNoDelay", true)
-                                put("tcpKeepAliveIdle", 30)
-                                put("tcpKeepAliveInterval", 15)
-                            })
-                        })
-                        sockopt.put("dialerProxy", "fragment")
+                    }
+                    if (!hasRealityFrag) {
+                        val fragReality = JSONObject(realityOutbound.toString())
+                        fragReality.put("tag", "reality-frag")
+                        val ss = fragReality.optJSONObject("streamSettings") ?: JSONObject().also { fragReality.put("streamSettings", it) }
+                        val so = ss.optJSONObject("sockopt") ?: JSONObject().also { ss.put("sockopt", it) }
+                        so.put("dialerProxy", "fragment")
+                        so.put("tcpNoDelay", true)
+                        so.put("tcpUserTimeout", 30000)
+                        so.put("tcpKeepAliveIdle", 30)
+                        so.put("tcpKeepAliveInterval", 15)
+                        outbounds.put(fragReality)
                     }
                 }
-            }
 
-            // Ensure no other outbound carries unsupported BBR or sockopt.fragment
-            val allOutbounds = root.optJSONArray("outbounds")
-            val primaryTag = allOutbounds?.optJSONObject(0)?.optString("tag")?.ifBlank { "reality" } ?: "reality"
-            if (allOutbounds != null) {
-                for (i in 0 until allOutbounds.length()) {
-                    val ob = allOutbounds.optJSONObject(i) ?: continue
-                    val so = ob.optJSONObject("streamSettings")?.optJSONObject("sockopt") ?: continue
-                    so.remove("tcpCongestion")
-                    so.remove("fragment")
+                // Build selector list from whichever racing transports exist in outbounds
+                val availableTags = mutableSetOf<String>()
+                for (i in 0 until outbounds.length()) {
+                    outbounds.optJSONObject(i)?.optString("tag")?.let { availableTags.add(it) }
+                }
+                val raceCandidates = listOf("reality", "reality-frag", "kcp", "cdn").filter { it in availableTags }
+                if (raceCandidates.isNotEmpty()) {
+                    val selectorArr = org.json.JSONArray().apply { raceCandidates.forEach { put(it) } }
+                    val fallbackTag = if ("cdn" in availableTags) "cdn" else raceCandidates.first()
+                    root.put("observatory", JSONObject().apply {
+                        put("subjectSelector", selectorArr)
+                        put("probeUrl", "https://cp.cloudflare.com/generate_204")
+                        put("probeInterval", "30s")
+                        put("enableConcurrency", true)
+                    })
+                    val routingObj = root.optJSONObject("routing") ?: JSONObject().also { root.put("routing", it) }
+                    routingObj.put("balancers", org.json.JSONArray().apply {
+                        put(JSONObject().apply {
+                            put("tag", "multi")
+                            put("selector", selectorArr)
+                            put("strategy", JSONObject().apply { put("type", "leastPing") })
+                            put("fallbackTag", fallbackTag)
+                        })
+                    })
                 }
             }
 
@@ -1345,21 +1463,13 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             // Tune DNS for speed (skip IPv6 AAAA timeouts)
             root.optJSONObject("dns")?.put("queryStrategy", "UseIPv4")
 
-            // Maximize throughput buffer
+            // Maximize throughput buffer & allow 8s handshake for cellular DPI paths
             val policyLevels = root.optJSONObject("policy")?.optJSONObject("levels")
-            policyLevels?.optJSONObject("8")?.put("bufferSize", 4096)
-
-            // Direct traffic to chosen transport rather than bouncing across balancers
-            val routingRules = root.optJSONObject("routing")?.optJSONArray("rules")
-            if (routingRules != null) {
-                for (i in 0 until routingRules.length()) {
-                    val r = routingRules.optJSONObject(i) ?: continue
-                    if (r.optString("balancerTag") == "multi") {
-                        r.remove("balancerTag")
-                        r.put("outboundTag", primaryTag)
-                    }
-                }
+            policyLevels?.optJSONObject("8")?.apply {
+                put("handshake", 8)
+                put("bufferSize", 4096)
             }
+
             DomesticSplitTunnel.injectDomesticRouting(root.toString())
         } catch (_: Throwable) {
             DomesticSplitTunnel.injectDomesticRouting(profileJson)
