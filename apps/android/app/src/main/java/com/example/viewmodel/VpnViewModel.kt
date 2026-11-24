@@ -1041,21 +1041,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         put("network", "tcp")
                         put("security", "reality")
                         put("sockopt", JSONObject().apply {
+                            put("dialerProxy", "fragment")
                             put("tcpNoDelay", true)
-                            put("tcpCongestion", "bbr")
                             put("tcpUserTimeout", 30000)
                             put("tcpKeepAliveIdle", 30)
                             put("tcpKeepAliveInterval", 15)
-                            val frag = (candidate?.params?.get("fragment") as? Map<*, *>) ?: mapOf(
-                                "packets" to "1-3",
-                                "length" to "10-30",
-                                "interval" to "10-20"
-                            )
-                            put("fragment", JSONObject().apply {
-                                put("packets", frag["packets"]?.toString() ?: "1-3")
-                                put("length", frag["length"]?.toString() ?: "10-30")
-                                put("interval", frag["interval"]?.toString() ?: "10-20")
-                            })
                         })
                         put("realitySettings", JSONObject().apply {
                             put("show", false)
@@ -1088,6 +1078,13 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     put("streamSettings", JSONObject().apply {
                         put("network", "tcp")
                         put("security", "reality")
+                        put("sockopt", JSONObject().apply {
+                            put("dialerProxy", "fragment")
+                            put("tcpNoDelay", true)
+                            put("tcpUserTimeout", 30000)
+                            put("tcpKeepAliveIdle", 30)
+                            put("tcpKeepAliveInterval", 15)
+                        })
                         put("realitySettings", JSONObject().apply {
                             put("show", false)
                             put("serverName", "www.microsoft.com")
@@ -1098,7 +1095,32 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         })
                     })
                 })
-                // 3. DNS Hijack Outbound (DoH via Xray's DNS engine)
+                // 3. Freedom TLS Fragmentation dialerProxy outbound (bypasses Iranian carrier DPI)
+                val frag = (candidate?.params?.get("fragment") as? Map<*, *>) ?: mapOf(
+                    "packets" to "1-3",
+                    "length" to "10-30",
+                    "interval" to "5-15"
+                )
+                put(JSONObject().apply {
+                    put("tag", "fragment")
+                    put("protocol", "freedom")
+                    put("settings", JSONObject().apply {
+                        put("domainStrategy", "AsIs")
+                        put("fragment", JSONObject().apply {
+                            put("packets", frag["packets"]?.toString() ?: "1-3")
+                            put("length", frag["length"]?.toString() ?: "10-30")
+                            put("interval", frag["interval"]?.toString() ?: "5-15")
+                        })
+                    })
+                    put("streamSettings", JSONObject().apply {
+                        put("sockopt", JSONObject().apply {
+                            put("tcpNoDelay", true)
+                            put("tcpKeepAliveIdle", 30)
+                            put("tcpKeepAliveInterval", 15)
+                        })
+                    })
+                })
+                // 4. DNS Hijack Outbound (DoH via Xray's DNS engine)
                 put(JSONObject().apply {
                     put("tag", "dns-out")
                     put("protocol", "dns")
@@ -1247,26 +1269,65 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
                     val streamSettings = primary.optJSONObject("streamSettings") ?: JSONObject().also { primary.put("streamSettings", it) }
                     val sockopt = streamSettings.optJSONObject("sockopt") ?: JSONObject().also { streamSettings.put("sockopt", it) }
+                    sockopt.remove("tcpCongestion")
+                    sockopt.remove("fragment")
                     sockopt.put("tcpNoDelay", true)
-                    sockopt.put("tcpCongestion", "bbr")
+                    sockopt.put("tcpUserTimeout", 30000)
                     sockopt.put("tcpKeepAliveIdle", 30)
                     sockopt.put("tcpKeepAliveInterval", 15)
 
                     val isReality = primary.optString("tag").contains("reality", ignoreCase = true) ||
                                     streamSettings.optString("security").equals("reality", ignoreCase = true)
-                    if (isReality) {
+                    if (isReality && outbounds != null) {
                         val frag = (candidate.params["fragment"] as? Map<*, *>) ?: mapOf(
                             "packets" to "1-3",
                             "length" to "10-30",
-                            "interval" to "10-20"
+                            "interval" to "5-15"
                         )
-                        val fragObj = JSONObject().apply {
-                            put("packets", frag["packets"]?.toString() ?: "1-3")
-                            put("length", frag["length"]?.toString() ?: "10-30")
-                            put("interval", frag["interval"]?.toString() ?: "10-20")
+                        var fragmentOutbound: JSONObject? = null
+                        for (i in 0 until outbounds.length()) {
+                            val ob = outbounds.optJSONObject(i) ?: continue
+                            if (ob.optString("tag") == "fragment") {
+                                fragmentOutbound = ob
+                                break
+                            }
                         }
-                        sockopt.put("fragment", fragObj)
+                        if (fragmentOutbound == null) {
+                            fragmentOutbound = JSONObject().apply {
+                                put("tag", "fragment")
+                                put("protocol", "freedom")
+                            }
+                            outbounds.put(fragmentOutbound)
+                        }
+                        fragmentOutbound.put("settings", JSONObject().apply {
+                            put("domainStrategy", "AsIs")
+                            put("fragment", JSONObject().apply {
+                                put("packets", frag["packets"]?.toString() ?: "1-3")
+                                put("length", frag["length"]?.toString() ?: "10-30")
+                                put("interval", frag["interval"]?.toString() ?: "5-15")
+                            })
+                        })
+                        fragmentOutbound.put("streamSettings", JSONObject().apply {
+                            put("sockopt", JSONObject().apply {
+                                put("tcpNoDelay", true)
+                                put("tcpKeepAliveIdle", 30)
+                                put("tcpKeepAliveInterval", 15)
+                            })
+                        })
+                        sockopt.put("dialerProxy", "fragment")
                     }
+                }
+            }
+
+            // Ensure no other outbound carries unsupported BBR or sockopt.fragment
+            val allOutbounds = root.optJSONArray("outbounds")
+            val primaryTag = allOutbounds?.optJSONObject(0)?.optString("tag")?.ifBlank { "reality" } ?: "reality"
+            if (allOutbounds != null) {
+                for (i in 0 until allOutbounds.length()) {
+                    val ob = allOutbounds.optJSONObject(i) ?: continue
+                    val so = ob.optJSONObject("streamSettings")?.optJSONObject("sockopt") ?: continue
+                    so.remove("tcpCongestion")
+                    so.remove("fragment")
                 }
             }
 
@@ -1295,7 +1356,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     val r = routingRules.optJSONObject(i) ?: continue
                     if (r.optString("balancerTag") == "multi") {
                         r.remove("balancerTag")
-                        r.put("outboundTag", candidate.transport.ifBlank { "reality" })
+                        r.put("outboundTag", primaryTag)
                     }
                 }
             }
