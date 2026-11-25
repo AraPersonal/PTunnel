@@ -118,8 +118,9 @@ object DomesticSplitTunnel {
             dnsObj.put("queryStrategy", "UseIPv4")
             if (!dnsObj.has("servers") || dnsObj.optJSONArray("servers")?.length() == 0) {
                 dnsObj.put("servers", JSONArray().apply {
+                    put("1.1.1.1")
+                    put("8.8.8.8")
                     put("https://1.1.1.1/dns-query")
-                    put("https://8.8.8.8/dns-query")
                 })
             }
 

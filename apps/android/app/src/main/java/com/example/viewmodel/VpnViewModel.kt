@@ -975,17 +975,17 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         val vlessId = "36827084-bbb2-4bca-ab73-d883d22b3d91"
         val vmessId = "dc1d11df-4ea1-437c-abc0-0cd47f45c60b"
         val (realityPubKey, realityShortId, kcpSni) = when (host) {
-            "38.17.64.159" -> Triple("lrYtUcwse7BYCKWn4_8YxcUbIvpRomQUNvRWNHvUyCw", "28ed7bd8d59fbb57", "38.17.64.159.nip.io")
+            "38.17.64.159" -> Triple("lrYtUcwse7BYCKWn4_8YxcUbIvpRomQUNvRWNHvUyCw", "28ed7bd8d59fbb57", "38-17-64-159.nip.io")
             "86.54.42.124" -> Triple("2segwPqlMkdRtd5asC11tYkb1ZcsvUEDAZ8JsWhjqFY", "2a18498b611d7ac7", "86-54-42-124.nip.io")
             else -> Triple("tgNDp7yrvFn4qjRqSXt9xwhpQTK8aakAkGavZ8GoxDw", "2a18498b611d7ac7", "62-144-51-213.nip.io")
         }
+        val g2CertSha256 = "af68e5bd209175f4ff0eb1487dc09465c030ecdc14007c936fa9dd265c6ad446"
 
         val root = JSONObject().apply {
             put("log", JSONObject().apply { put("loglevel", "warning") })
             put("dns", JSONObject().apply {
                 put("queryStrategy", "UseIPv4")
-                put("disableFallback", true)
-                put("disableFallbackIfMatch", true)
+                put("disableFallback", false)
                 put("hosts", JSONObject().apply {
                     put(kcpSni, host)
                     put("cdn.ptu.beauty", org.json.JSONArray().apply {
@@ -994,8 +994,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     })
                 })
                 put("servers", org.json.JSONArray().apply {
+                    put("1.1.1.1")
+                    put("8.8.8.8")
                     put("https://1.1.1.1/dns-query")
-                    put("https://1.0.0.1/dns-query")
                 })
             })
             put("policy", JSONObject().apply {
@@ -1136,7 +1137,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         put("security", "tls")
                         put("tlsSettings", JSONObject().apply {
                             put("serverName", kcpSni)
-                            put("allowInsecure", false)
+                            if (host == "62.144.51.213") {
+                                put("pinnedPeerCertSha256", g2CertSha256)
+                            } else {
+                                put("allowInsecure", false)
+                            }
                             put("alpn", org.json.JSONArray().apply {
                                 put("h2")
                                 put("http/1.1")
@@ -1159,6 +1164,42 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                                         put("password", "IqE5nHey2xqXXiew2xh9lMnhy4MdCuh4")
                                     })
                                 })
+                            })
+                        })
+                        put("sockopt", JSONObject().apply {
+                            put("tcpNoDelay", true)
+                            put("tcpUserTimeout", 30000)
+                            put("tcpKeepAliveIdle", 30)
+                            put("tcpKeepAliveInterval", 15)
+                        })
+                    })
+                })
+                // 3b. Trojan TLS (TCP 2053 - reliable fallback if UDP 8443 is blocked on a carrier)
+                put(JSONObject().apply {
+                    put("tag", "trojan")
+                    put("protocol", "trojan")
+                    put("settings", JSONObject().apply {
+                        put("servers", org.json.JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("address", host)
+                                put("port", 2053)
+                                put("password", "8e40c7e44e44c73c89c61f41ae2e5f0e")
+                            })
+                        })
+                    })
+                    put("streamSettings", JSONObject().apply {
+                        put("network", "tcp")
+                        put("security", "tls")
+                        put("tlsSettings", JSONObject().apply {
+                            put("serverName", kcpSni)
+                            if (host == "62.144.51.213") {
+                                put("pinnedPeerCertSha256", g2CertSha256)
+                            } else {
+                                put("allowInsecure", false)
+                            }
+                            put("alpn", org.json.JSONArray().apply {
+                                put("h2")
+                                put("http/1.1")
                             })
                         })
                         put("sockopt", JSONObject().apply {
@@ -1250,8 +1291,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             })
             put("observatory", JSONObject().apply {
                 put("subjectSelector", org.json.JSONArray().apply {
-                    put("reality-frag")
                     put("kcp")
+                    put("trojan")
+                    put("reality-frag")
                 })
                 put("probeUrl", "https://cp.cloudflare.com/generate_204")
                 put("probeInterval", "2m")
@@ -1263,8 +1305,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     put(JSONObject().apply {
                         put("tag", "multi")
                         put("selector", org.json.JSONArray().apply {
-                            put("reality-frag")
                             put("kcp")
+                            put("trojan")
+                            put("reality-frag")
                         })
                         put("strategy", JSONObject().apply { put("type", "leastPing") })
                         put("fallbackTag", "cdn")
@@ -1369,6 +1412,27 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
 
+                    // Fix TLS certificate validation on Germany 2 (legacy CN cert) and Turkey (dotted vs dashed SNI)
+                    if (tag == "kcp" || tag == "trojan" || tag == "vmess") {
+                        val vnextObj = ob.optJSONObject("settings")?.optJSONArray("vnext")?.optJSONObject(0)
+                        val srvObj = ob.optJSONObject("settings")?.optJSONArray("servers")?.optJSONObject(0)
+                        val obHost = (vnextObj ?: srvObj)?.optString("address").orEmpty()
+                        val tls = ss?.optJSONObject("tlsSettings")
+                        if (tls != null) {
+                            if (tls.optString("serverName") == "38.17.64.159.nip.io") {
+                                tls.put("serverName", "38-17-64-159.nip.io")
+                            }
+                            if (obHost == "62.144.51.213") {
+                                tls.remove("allowInsecure")
+                                tls.put("pinnedPeerCertSha256", "af68e5bd209175f4ff0eb1487dc09465c030ecdc14007c936fa9dd265c6ad446")
+                            }
+                        }
+                        val wsHeaders = ss?.optJSONObject("wsSettings")?.optJSONObject("headers")
+                        if (wsHeaders != null && wsHeaders.optString("Host") == "38.17.64.159.nip.io") {
+                            wsHeaders.put("Host", "38-17-64-159.nip.io")
+                        }
+                    }
+
                     // Pin CDN outbound directly to Cloudflare anycast IP to avoid Iranian DNS poisoning
                     if (tag == "cdn") {
                         val serverObj = ob.optJSONObject("settings")?.optJSONArray("vnext")?.optJSONObject(0)
@@ -1435,12 +1499,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
-                // Race only DPI-resistant transports ("reality-frag" and "kcp") so unfragmented "reality" cannot win ping and get throttled
+                // Race all live-verified transports ("kcp", "trojan", "vmess", "reality-frag") with Cloudflare "cdn" as fallback
                 val availableTags = mutableSetOf<String>()
                 for (i in 0 until outbounds.length()) {
                     outbounds.optJSONObject(i)?.optString("tag")?.let { availableTags.add(it) }
                 }
-                val raceCandidates = listOf("reality-frag", "kcp").filter { it in availableTags }
+                val raceCandidates = listOf("kcp", "trojan", "vmess", "reality-frag").filter { it in availableTags }
                     .ifEmpty { listOf("reality", "cdn").filter { it in availableTags } }
                 if (raceCandidates.isNotEmpty()) {
                     val selectorArr = org.json.JSONArray().apply { raceCandidates.forEach { put(it) } }
@@ -1474,11 +1538,21 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
-            // Tune DNS for speed (skip IPv6 AAAA timeouts and slow fallback chains)
+            // Use fast encrypted-in-tunnel DNS (1.1.1.1, 8.8.8.8) with DoH fallback and dashed Turkey host pin
             root.optJSONObject("dns")?.apply {
                 put("queryStrategy", "UseIPv4")
-                put("disableFallback", true)
-                put("disableFallbackIfMatch", true)
+                put("disableFallback", false)
+                remove("disableFallbackIfMatch")
+                optJSONObject("hosts")?.apply {
+                    if (has("38.17.64.159.nip.io")) {
+                        put("38-17-64-159.nip.io", opt("38.17.64.159.nip.io"))
+                    }
+                }
+                put("servers", org.json.JSONArray().apply {
+                    put("1.1.1.1")
+                    put("8.8.8.8")
+                    put("https://1.1.1.1/dns-query")
+                })
             }
 
             // Maximize throughput buffer & allow 8s handshake for cellular DPI paths
