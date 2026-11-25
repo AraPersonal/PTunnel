@@ -11,8 +11,8 @@ android {
     applicationId = "com.ptunnel"
     minSdk = 24
     targetSdk = 36
-    versionCode = 77
-    versionName = "0.77"
+    versionCode = 78
+    versionName = "0.78"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

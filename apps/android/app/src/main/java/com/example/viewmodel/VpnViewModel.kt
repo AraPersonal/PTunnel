@@ -701,8 +701,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
 
-            // Run two-phase discovery calibration with strict 4.5s cap so slow/blocked APIs never stall connect
-            val discoveryResult = withTimeoutOrNull(4500L) {
+            // Run two-phase discovery calibration with strict 3s cap so slow/blocked APIs never stall connect
+            val discoveryResult = withTimeoutOrNull(3000L) {
                 runCatching {
                     networkProbeEngine.discoverAndTune(
                         authToken = state.userProfile.authToken,
@@ -984,6 +984,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             put("log", JSONObject().apply { put("loglevel", "warning") })
             put("dns", JSONObject().apply {
                 put("queryStrategy", "UseIPv4")
+                put("disableFallback", true)
+                put("disableFallbackIfMatch", true)
                 put("hosts", JSONObject().apply {
                     put(kcpSni, host)
                     put("cdn.ptu.beauty", org.json.JSONArray().apply {
@@ -1001,6 +1003,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     put("8", JSONObject().apply {
                         put("handshake", 8)
                         put("connIdle", 300)
+                        put("uplinkOnly", 2)
+                        put("downlinkOnly", 5)
                         put("bufferSize", 4096)
                     })
                 })
@@ -1141,11 +1145,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         put("kcpSettings", JSONObject().apply {
                             put("mtu", 1200)
                             put("tti", 20)
-                            put("uplinkCapacity", 1000)
-                            put("downlinkCapacity", 1000)
-                            put("congestion", false)
-                            put("readBufferSize", 32)
-                            put("writeBufferSize", 32)
+                            put("uplinkCapacity", 50)
+                            put("downlinkCapacity", 100)
+                            put("congestion", true)
+                            put("readBufferSize", 16)
+                            put("writeBufferSize", 16)
                         })
                         put("finalmask", JSONObject().apply {
                             put("udp", org.json.JSONArray().apply {
@@ -1204,11 +1208,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         })
                     })
                 })
-                // 5. Freedom TLS Fragmentation dialerProxy outbound
+                // 5. Freedom TLS Fragmentation dialerProxy outbound (fast 40-80B split, 1-2ms interval)
                 val frag = (candidate?.params?.get("fragment") as? Map<*, *>) ?: mapOf(
                     "packets" to "1-3",
-                    "length" to "15-40",
-                    "interval" to "2-5"
+                    "length" to "40-80",
+                    "interval" to "1-2"
                 )
                 put(JSONObject().apply {
                     put("tag", "fragment")
@@ -1217,8 +1221,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         put("domainStrategy", "AsIs")
                         put("fragment", JSONObject().apply {
                             put("packets", frag["packets"]?.toString() ?: "1-3")
-                            put("length", frag["length"]?.toString() ?: "15-40")
-                            put("interval", frag["interval"]?.toString() ?: "2-5")
+                            put("length", frag["length"]?.toString() ?: "40-80")
+                            put("interval", frag["interval"]?.toString() ?: "1-2")
                         })
                     })
                     put("streamSettings", JSONObject().apply {
@@ -1246,13 +1250,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             })
             put("observatory", JSONObject().apply {
                 put("subjectSelector", org.json.JSONArray().apply {
-                    put("reality")
                     put("reality-frag")
                     put("kcp")
-                    put("cdn")
                 })
                 put("probeUrl", "https://cp.cloudflare.com/generate_204")
-                put("probeInterval", "30s")
+                put("probeInterval", "2m")
                 put("enableConcurrency", true)
             })
             put("routing", JSONObject().apply {
@@ -1261,10 +1263,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     put(JSONObject().apply {
                         put("tag", "multi")
                         put("selector", org.json.JSONArray().apply {
-                            put("reality")
                             put("reality-frag")
                             put("kcp")
-                            put("cdn")
                         })
                         put("strategy", JSONObject().apply { put("type", "leastPing") })
                         put("fallbackTag", "cdn")
@@ -1376,6 +1376,19 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                             serverObj.put("address", "188.114.96.3")
                         }
                     }
+
+                    // Tune mKCP for cellular LTE without UDP flood/bufferbloat
+                    if (tag == "kcp") {
+                        ss?.optJSONObject("kcpSettings")?.apply {
+                            put("mtu", 1200)
+                            put("tti", 20)
+                            put("uplinkCapacity", 50)
+                            put("downlinkCapacity", 100)
+                            put("congestion", true)
+                            put("readBufferSize", 16)
+                            put("writeBufferSize", 16)
+                        }
+                    }
                 }
 
                 // Keep plain "reality" clean (no dialerProxy) and add "reality-frag" + "fragment" for DPI bypass
@@ -1384,8 +1397,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
                     val frag = (candidate.params["fragment"] as? Map<*, *>) ?: mapOf(
                         "packets" to "1-3",
-                        "length" to "15-40",
-                        "interval" to "2-5"
+                        "length" to "40-80",
+                        "interval" to "1-2"
                     )
                     if (!hasFragmentOutbound) {
                         outbounds.put(JSONObject().apply {
@@ -1395,8 +1408,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                                 put("domainStrategy", "AsIs")
                                 put("fragment", JSONObject().apply {
                                     put("packets", frag["packets"]?.toString() ?: "1-3")
-                                    put("length", frag["length"]?.toString() ?: "15-40")
-                                    put("interval", frag["interval"]?.toString() ?: "2-5")
+                                    put("length", frag["length"]?.toString() ?: "40-80")
+                                    put("interval", frag["interval"]?.toString() ?: "1-2")
                                 })
                             })
                             put("streamSettings", JSONObject().apply {
@@ -1422,19 +1435,20 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
-                // Build selector list from whichever racing transports exist in outbounds
+                // Race only DPI-resistant transports ("reality-frag" and "kcp") so unfragmented "reality" cannot win ping and get throttled
                 val availableTags = mutableSetOf<String>()
                 for (i in 0 until outbounds.length()) {
                     outbounds.optJSONObject(i)?.optString("tag")?.let { availableTags.add(it) }
                 }
-                val raceCandidates = listOf("reality", "reality-frag", "kcp", "cdn").filter { it in availableTags }
+                val raceCandidates = listOf("reality-frag", "kcp").filter { it in availableTags }
+                    .ifEmpty { listOf("reality", "cdn").filter { it in availableTags } }
                 if (raceCandidates.isNotEmpty()) {
                     val selectorArr = org.json.JSONArray().apply { raceCandidates.forEach { put(it) } }
                     val fallbackTag = if ("cdn" in availableTags) "cdn" else raceCandidates.first()
                     root.put("observatory", JSONObject().apply {
                         put("subjectSelector", selectorArr)
                         put("probeUrl", "https://cp.cloudflare.com/generate_204")
-                        put("probeInterval", "30s")
+                        put("probeInterval", "2m")
                         put("enableConcurrency", true)
                     })
                     val routingObj = root.optJSONObject("routing") ?: JSONObject().also { root.put("routing", it) }
@@ -1460,13 +1474,19 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
-            // Tune DNS for speed (skip IPv6 AAAA timeouts)
-            root.optJSONObject("dns")?.put("queryStrategy", "UseIPv4")
+            // Tune DNS for speed (skip IPv6 AAAA timeouts and slow fallback chains)
+            root.optJSONObject("dns")?.apply {
+                put("queryStrategy", "UseIPv4")
+                put("disableFallback", true)
+                put("disableFallbackIfMatch", true)
+            }
 
             // Maximize throughput buffer & allow 8s handshake for cellular DPI paths
             val policyLevels = root.optJSONObject("policy")?.optJSONObject("levels")
             policyLevels?.optJSONObject("8")?.apply {
                 put("handshake", 8)
+                put("uplinkOnly", 2)
+                put("downlinkOnly", 5)
                 put("bufferSize", 4096)
             }
 
